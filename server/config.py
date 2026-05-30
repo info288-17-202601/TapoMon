@@ -31,6 +31,7 @@ MONGO_DB  = os.getenv("MONGO_DB",  "Tapomon")
 # ------------------------------------------------------------------ #
 SERVER_HOST = os.getenv("SERVER_HOST", "0.0.0.0")
 SERVER_PORT = int(os.getenv("SERVER_PORT", "8000"))
+SERVER_WORKER_COUNT = int(os.getenv("SERVER_WORKER_COUNT", "1"))
 
 # ------------------------------------------------------------------ #
 #  JWT
