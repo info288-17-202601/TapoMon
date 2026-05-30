@@ -70,6 +70,18 @@ def flujo_registro() -> tuple | None:
     usuario, tapo = local_db.registrar_nuevo_usuario(
         username, correo, password, nombre_tapo, tipo
     )
+
+    # Replicar la cuenta en el servidor central para que el sync funcione.
+    # Si el servidor no está disponible, la cuenta queda solo en la DB local
+    # y el juego continúa en modo offline sin interrupciones.
+    sync_client.register(
+        username=username,
+        correo=correo,
+        password=password,
+        usuario_id=usuario.id,
+        tapo_id=tapo.id_mascota,
+    )
+
     ui.mensaje_ok(f"¡Cuenta creada! Bienvenido, {username}. Tu Tapo '{nombre_tapo}' te espera.")
     return usuario, tapo
 

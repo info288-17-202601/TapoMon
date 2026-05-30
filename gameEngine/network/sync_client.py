@@ -63,8 +63,13 @@ class SyncClient:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                self._token = data["access_token"]
-                self._usuario_id = data["usuario_id"]
+                token = data.get("access_token")
+                usuario_id = data.get("usuario_id")
+                if not token or not usuario_id:
+                    print("  ⚠️  Respuesta inesperada del servidor al hacer login.")
+                    return False
+                self._token = token
+                self._usuario_id = usuario_id
                 return True
             return False
         except requests.ConnectionError:
@@ -77,6 +82,61 @@ class SyncClient:
     # ------------------------------------------------------------------ #
     #  SyncService
     # ------------------------------------------------------------------ #
+
+    def register(self, username: str, correo: str, password: str,
+                 usuario_id: str, tapo_id: str) -> bool:
+        """
+        Registra una cuenta nueva en el servidor.
+
+        Debe llamarse justo después de crear el usuario en la DB local,
+        pasando los mismos UUIDs para que ambas bases de datos sean
+        consistentes desde el primer momento.
+
+        Args:
+            username:   Nombre de usuario.
+            correo:     Correo electrónico.
+            password:   Contraseña en texto plano.
+            usuario_id: UUID del usuario generado localmente.
+            tapo_id:    UUID de la mascota generado localmente.
+
+        Returns:
+            True si el registro fue exitoso (o ya existía),
+            False si el servidor no está disponible.
+        """
+        try:
+            resp = requests.post(
+                f"{self.base_url}/auth/register",
+                json={
+                    "username":   username,
+                    "correo":     correo,
+                    "password":   password,
+                    "usuario_id": usuario_id,
+                    "tapo_id":    tapo_id,
+                },
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 201:
+                data = resp.json()
+                token = data.get("access_token")
+                uid   = data.get("usuario_id")
+                if token and uid:
+                    self._token = token
+                    self._usuario_id = uid
+                return True
+            if resp.status_code == 409:
+                # El usuario ya existe en el servidor. Esto ocurre normalmente
+                # cuando el cliente y el servidor comparten la misma instancia
+                # de MongoDB: local_db ya escribió el usuario antes de que
+                # llegáramos aquí. Hacemos login para obtener el JWT.
+                return self.login(username, password)
+            print(f"  ⚠️  Error al registrar en el servidor: {resp.status_code}")
+            return False
+        except requests.ConnectionError:
+            print("  ⚠️  Servidor no disponible. Cuenta creada solo localmente.")
+            return False
+        except Exception as e:
+            print(f"  ⚠️  Error al registrar en el servidor: {e}")
+            return False
 
     def upload_state(self, tapo) -> bool:
         """

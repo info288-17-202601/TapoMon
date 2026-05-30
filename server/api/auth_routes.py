@@ -17,11 +17,12 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Depends, Header
 from typing import Optional
 
-from server.models.schemas import LoginRequest, TokenResponse, ErrorResponse
+from server.models.schemas import LoginRequest, TokenResponse, ErrorResponse, RegisterRequest
 from server.services.auth_service import (
     autenticar_usuario,
     generar_token,
     verificar_token,
+    registrar_usuario,
 )
 
 router = APIRouter()
@@ -73,6 +74,40 @@ async def login(request: LoginRequest):
         raise HTTPException(
             status_code=401,
             detail="Usuario o contraseña incorrectos."
+        )
+
+    token = generar_token(usuario_doc)
+
+    return TokenResponse(
+        access_token=token,
+        usuario_id=usuario_doc["Id"],
+        username=usuario_doc["Username"],
+    )
+
+
+@router.post("/register", response_model=TokenResponse, status_code=201)
+async def register(request: RegisterRequest):
+    """
+    Registra un usuario nuevo en el servidor y retorna un JWT.
+
+    El cliente genera los UUIDs (usuario_id, tapo_id) para garantizar
+    que ambas bases de datos (local y servidor) usen los mismos IDs.
+
+    Retorna 409 si el username ya está registrado en el servidor.
+    Retorna 201 + JWT si el registro fue exitoso.
+    """
+    usuario_doc = registrar_usuario(
+        username=request.username,
+        correo=request.correo,
+        password=request.password,
+        usuario_id=request.usuario_id,
+        tapo_id=request.tapo_id,
+    )
+
+    if usuario_doc is None:
+        raise HTTPException(
+            status_code=409,
+            detail="El nombre de usuario ya está registrado en el servidor."
         )
 
     token = generar_token(usuario_doc)
