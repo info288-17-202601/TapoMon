@@ -143,8 +143,18 @@ class App:
         self.game_engine.aplicar_idle(tapo)
 
         if self.game_engine.verificar_muerte(tapo):
-            # El tapo murió — crear nueva mascota
-            tapo = self._create_new_tapo(usuario)
+            from pygame_ui.screens.death_screen import DeathScreen
+            self.manager.replace(
+                DeathScreen(
+                    self.manager,
+                    usuario=usuario,
+                    tapo=tapo,
+                    game_engine=self.game_engine,
+                    local_db=self.local_db,
+                    sync_client=self.sync_client,
+                )
+            )
+            return
 
         tapo.estado_sistema = True
         self.local_db.guardar_tapo(tapo)
@@ -160,14 +170,6 @@ class App:
                 sync_client  = self.sync_client,
             )
         )
-
-    def _create_new_tapo(self, usuario):
-        """Muestra pantalla de creación de nueva mascota (simplificado)."""
-        # Por ahora crea uno con valores por defecto
-        # En producción aquí iría una pantalla dedicada
-        from models.tapo import TipoTapo
-        tapo = self.local_db.registrar_nueva_mascota(usuario, "Nuevo Tapo", TipoTapo.NORMAL)
-        return tapo
 
     # ---------------------------------------------------------------- #
     #  Game loop

@@ -29,6 +29,7 @@ class StatusScreen(Screen):
         self._toast: Toast | None = None
         self._time   = 0.0
         self._last_tick_t = time.time()
+        self._death_handled = False
  
         # Sprite
         self.sprite = TapoSprite(
@@ -125,7 +126,7 @@ class StatusScreen(Screen):
         if msgs:
             self._show_toast(msgs[0])
         if self.ge.verificar_muerte(self.tapo):
-            self._show_toast("Tu Tapo ha muerto...", ok=False)
+            self._handle_death()
  
     def _accion_alimentar(self):  self._run_action(self.ge.alimentar)
     def _accion_jugar(self):      self._run_action(self.ge.jugar)
@@ -173,6 +174,24 @@ class StatusScreen(Screen):
             self._last_tick_t += ticks * self.ge.REALTIME_SECONDS_PER_TICK
             self._refresh_bars()
             self.local_db.guardar_tapo(self.tapo)
+            if self.ge.verificar_muerte(self.tapo):
+                self._handle_death()
+
+    def _handle_death(self):
+        if self._death_handled:
+            return
+        self._death_handled = True
+        from pygame_ui.screens.death_screen import DeathScreen
+        self.manager.replace(
+            DeathScreen(
+                self.manager,
+                usuario=self.usuario,
+                tapo=self.tapo,
+                game_engine=self.ge,
+                local_db=self.local_db,
+                sync_client=self.sync_client,
+            )
+        )
  
     # ---------------------------------------------------------------- #
     #  Eventos, update, draw
