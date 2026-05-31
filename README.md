@@ -174,13 +174,13 @@ para el combate P2P y nombres de proyecto distintos:
 
 ```bash
 # Jugador A — usa el puerto por defecto
-P2P_HOST_IP=127.0.0.1 P2P_PORT=55201 ./play.sh alice
+P2P_HOST_IP=host.docker.internal P2P_PORT=55201 ./play.sh alice
 
 # Jugador B — usa un puerto diferente (en otra terminal)
-P2P_HOST_IP=127.0.0.1 P2P_PORT=55202 ./play.sh bob
+P2P_HOST_IP=host.docker.internal P2P_PORT=55202 ./play.sh bob
 ```
 
-Cuando B rete a A, introducirá `127.0.0.1` como IP y `55201` como puerto.
+Cuando B rete a A, introducirá `host.docker.internal:55201` como IP y puerto.
 
 ---
 
