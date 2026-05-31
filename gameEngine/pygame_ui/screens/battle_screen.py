@@ -50,16 +50,28 @@ class BattleMenuScreen(Screen):
             color=C_BG3, hover_color=C_BG2,
             text_color=C_GRAY, accent_color=C_BORDER
         )
-        self.tf_ip = TextField(cx - 140, 392, 280, 44, placeholder="IP del host  (ej: 192.168.1.5)")
+        self.tf_ip = TextField(cx - 140, 392, 280, 44, placeholder="IP:PORT (ej: 127.0.0.1:55201)")
 
     def _go_host(self):
         self.manager.replace(BattleScreen(self.manager, self.tapo, mode="host", ip=""))
 
     def _go_join(self):
-        ip = self.tf_ip.text.strip()
-        if not ip:
+        ip_port = self.tf_ip.text.strip()
+        if not ip_port:
             return
-        self.manager.replace(BattleScreen(self.manager, self.tapo, mode="client", ip=ip))
+
+        from p2pEngine.p2p_server import DEFAULT_PORT
+        if ":" in ip_port:
+            ip_host, port_str = ip_port.split(":", 1)
+            try:
+                port = int(port_str)
+            except ValueError:
+                return
+        else:
+            ip_host = ip_port
+            port = DEFAULT_PORT
+
+        self.manager.replace(BattleScreen(self.manager, self.tapo, mode="client", ip=ip_host, port=port))
 
     def handle_event(self, event):
         self.btn_host.handle_event(event)
@@ -114,11 +126,12 @@ class BattleScreen(Screen):
 
     MAX_LOG = 18
 
-    def __init__(self, manager, tapo, mode: str, ip: str):
+    def __init__(self, manager, tapo, mode: str, ip: str, port: int = 55201):
         super().__init__(manager)
         self.tapo   = tapo
         self.mode   = mode     # "host" | "client"
         self.ip     = ip
+        self.port   = port
         self._log_lines: list[tuple[str, tuple]] = []  # (texto, color)
         self._status   = "connecting"   # connecting | fighting | ended
         self._winner   = ""
@@ -197,24 +210,34 @@ class BattleScreen(Screen):
     def _start_combat(self):
         try:
             if self.mode == "host":
+                import socket
+                import os
+                from p2pEngine.p2p_server import DEFAULT_PORT
+                
+                advertised_ip = (
+                    os.getenv("P2P_HOST_IP")
+                    or socket.gethostbyname(socket.gethostname())
+                )
+                advertised_port = int(os.getenv("P2P_HOST_PORT", str(DEFAULT_PORT)))
+
                 from p2pEngine.p2p_server import ServidorCombate
                 self._combat_obj = ServidorCombate(self.tapo, callback_log=self._log_cb)
                 self._thread = threading.Thread(
                     target=self._combat_obj.iniciar, daemon=True
                 )
+                self._thread.start()
+                self._add_log(f"Host IP:PUERTO -> {advertised_ip}:{advertised_port}", C_ACCENT)
+                self._add_log("Esperando challenger...", C_ACCENT)
             else:
                 from p2pEngine.p2p_client import ClienteCombate
                 self._combat_obj = ClienteCombate(
-                    self.tapo, host_ip=self.ip, callback_log=self._log_cb
+                    self.tapo, host_ip=self.ip, port=self.port, callback_log=self._log_cb
                 )
                 self._thread = threading.Thread(
                     target=self._combat_obj.conectar, daemon=True
                 )
-            self._thread.start()
-            self._add_log(
-                f"{'Esperando challenger...' if self.mode == 'host' else f'Conectando a {self.ip}...'}",
-                C_ACCENT
-            )
+                self._thread.start()
+                self._add_log(f"Conectando a {self.ip}:{self.port}...", C_ACCENT)
         except Exception as e:
             self._add_log(f"Error: {e}", C_HP_LOW)
 

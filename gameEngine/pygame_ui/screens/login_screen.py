@@ -90,29 +90,38 @@ class LoginScreen(Screen):
             self._show_toast("Completa todos los campos", ok=False)
             return
         try:
-            usuario = self.local_db.buscar_usuario_por_username(username)
-            if not usuario or not usuario.check_password(password):
-                self._show_toast("Usuario o contraseña incorrectos", ok=False)
+            self._show_toast("Autenticando con servidor central...", ok=True)
+            auth_data = self.sync_client.login(username, password)
+            if not auth_data:
+                self._show_toast("Credenciales incorrectas o el servidor no está disponible", ok=False)
                 return
-            self.sync_client.login(username, password)
-            tapo = None
-            if self.sync_client.is_connected():
-                state = self.sync_client.resume(usuario.id)
-                if state and state.get("tapo"):
-                    from models.tapo import Tapo
-                    tapo = Tapo.from_dict(state["tapo"])
-                    self.local_db.guardar_tapo(tapo)
-            if tapo is None:
-                tapo = self.local_db.cargar_tapo(usuario.tapo_id)
-            if tapo is None:
-                self._show_toast("No se encontró la mascota", ok=False)
+
+            usuario_id = auth_data["usuario_id"]
+            correo = auth_data["correo"]
+            tapo_id = auth_data["tapo_id"]
+
+            server_state = self.sync_client.resume(usuario_id)
+            if not server_state or not server_state.get("tapo"):
+                self._show_toast("No se pudo obtener el estado desde el servidor", ok=False)
                 return
+
+            from models.usuario import Usuario
+            from models.tapo import Tapo
+            usuario = Usuario(id=usuario_id, username=username, correo=correo, tapo_id=tapo_id)
+            usuario.set_password(password)
+
+            tapo = Tapo.from_dict(server_state["tapo"])
+
+            self.local_db.guardar_usuario(usuario)
+            self.local_db.guardar_tapo(tapo)
+            self.local_db._crear_indices()
+
             self._show_toast(f"¡Bienvenido, {username}!", ok=True)
             pygame.time.delay(800)
             self.on_success(usuario, tapo)
         except Exception as e:
             self._show_toast(f"Error: {e}", ok=False)
- 
+
     def _do_register(self):
         username = self.tf_reg_user.text.strip()
         correo   = self.tf_reg_email.text.strip()
@@ -122,14 +131,43 @@ class LoginScreen(Screen):
             self._show_toast("Completa todos los campos", ok=False)
             return
         try:
-            if self.local_db.buscar_usuario_por_username(username):
-                self._show_toast("Ese usuario ya existe", ok=False)
-                return
-            from models.tapo import TipoTapo
-            tipo = TipoTapo(self._tipo_sel)
-            usuario, tapo = self.local_db.registrar_nuevo_usuario(
-                username, correo, password, nombre, tipo
+            import uuid
+            from models.tapo import TipoTapo, Vitales, Estadistica
+            from models.usuario import Usuario
+
+            usuario_id = str(uuid.uuid4())
+            tapo_id = str(uuid.uuid4())
+
+            self._show_toast("Registrando en servidor central...", ok=True)
+            auth_data = self.sync_client.register(
+                username=username,
+                correo=correo,
+                password=password,
+                usuario_id=usuario_id,
+                tapo_id=tapo_id,
             )
+
+            if not auth_data:
+                self._show_toast("Error al registrar o el servidor no está disponible", ok=False)
+                return
+
+            usuario = Usuario(id=usuario_id, username=username, correo=correo, tapo_id=tapo_id)
+            usuario.set_password(password)
+
+            tipo_enum = TipoTapo(self._tipo_sel) if hasattr(TipoTapo, self._tipo_sel) else TipoTapo.NORMAL
+            tapo = Tapo(
+                id_mascota=tapo_id,
+                nombre=nombre,
+                vitales=Vitales(),
+                estadistica=Estadistica(tipo=tipo_enum),
+            )
+
+            self.local_db.guardar_usuario(usuario)
+            self.local_db.guardar_tapo(tapo)
+            self.local_db._crear_indices()
+
+            self.sync_client.upload_state(tapo)
+
             self._show_toast(f"¡Cuenta creada! Bienvenido, {username}!", ok=True)
             pygame.time.delay(900)
             self.on_success(usuario, tapo)
