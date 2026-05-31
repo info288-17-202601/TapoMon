@@ -1,0 +1,100 @@
+# ──────────────────────────────────────────────────────
+#  docker-compose.client.yml  —  TapoMon CLIENT STACK
+#
+#  Each player runs their OWN independent instance.
+#  The project name (-p) creates isolated networks and volumes.
+#
+#  Usage:
+#
+#    # Start your client (interactive):
+#    ./play.sh <your_name>
+#
+#    # Two players on the SAME machine (different P2P ports):
+#    P2P_PORT=55201 ./play.sh alice
+#    P2P_PORT=55202 ./play.sh bob
+#
+#    # Stop your client:
+#    docker compose -f docker-compose.client.yml -p <your_name> down
+#
+#    # Destroy local save data (MongoDB volume):
+#    docker compose -f docker-compose.client.yml -p <your_name> down -v
+#
+#  P2P Battles:
+#    Port 55201 is ALWAYS published so P2P battle hosting works
+#    seamlessly from the in-game menu without restarting the container.
+#
+#    Set P2P_HOST_IP to your machine's LAN IP so the game shows
+#    the correct address to share with the challenger:
+#      P2P_HOST_IP=192.168.1.50 docker compose ... up
+# ──────────────────────────────────────────────────────
+
+services:
+
+  # ── Player's local MongoDB (private save data) ─────────────────────
+  mongodb-local:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongodb_local_data:/data/db
+    networks:
+      - tapomon-client-net
+    # NOT exposed to host — only the gameEngine container can reach it
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Game Engine (interactive console) ──────────────────────────────
+  gameengine:
+    image: tapomon-client:latest
+    build:
+      context: ./gameEngine
+      dockerfile: Dockerfile
+    depends_on:
+      mongodb-local:
+        condition: service_healthy
+    stdin_open: true     # keeps stdin open (-i)
+    tty: true            # allocates a pseudo-TTY (-t)
+    # P2P port is ALWAYS published so in-game Host mode works seamlessly.
+    # Override host port via P2P_PORT env var (e.g. for two clients on
+    # the same machine). The container-side port stays 55201 always.
+    ports:
+      - "${P2P_PORT:-55201}:55201"
+    networks:
+      - tapomon-client-net
+    extra_hosts:
+      # Maps host.docker.internal → host machine IP on Linux.
+      # Allows the client to reach the central server at localhost:8000.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # 1. Share the Linux/WSL2 display socket so the window can render
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # 2. Live-reload your game code (assumes your code is in ./gameEngine and container uses /app)
+      - ./gameEngine:/app 
+    environment:
+      # ── Local database (sidecar MongoDB for this player) ────────────
+      MONGO_URI: mongodb://mongodb-local:27017
+      MONGO_DB: Tapomon
+      # ── Central server ───────────────────────────────────────────────
+      # Override with the server's IP/hostname if running on another machine.
+      TAPOMON_SERVER_URL: http://host.docker.internal:8000
+      TAPOMON_REQUEST_TIMEOUT: "10"
+      # ── P2P Battle ───────────────────────────────────────────────────
+      # Your machine's LAN IP — shown to the challenger when hosting.
+      # Leave unset to auto-detect (may show container IP instead of host IP).
+      # Example: P2P_HOST_IP=192.168.1.50
+      P2P_HOST_IP: ${P2P_HOST_IP:-}
+      # Host port advertised to the challenger (matches the ports: mapping above).
+      P2P_HOST_PORT: ${P2P_PORT:-55201}
+      DISPLAY: ${DISPLAY}
+
+networks:
+  tapomon-client-net:
+    driver: bridge
+
+volumes:
+  mongodb_local_data:
+    # Volume name is scoped to the project (-p flag), so each player
+    # gets their own isolated save data automatically.

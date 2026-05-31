@@ -1,0 +1,61 @@
+# ──────────────────────────────────────────────────────
+#  docker-compose.yml  —  TapoMon SERVER STACK
+#
+#  Manages the central server and its MongoDB.
+#  Run once per deployment:
+#
+#    docker compose up -d
+#    docker compose down
+# ──────────────────────────────────────────────────────
+
+services:
+
+  # ── Central MongoDB (server-side Pet State Store) ──────────────────
+  mongodb:
+    image: mongo:7
+    container_name: tapomon-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_server_data:/data/db
+    networks:
+      - tapomon-server-net
+    # NOT exposed to host — clients talk to the server via HTTP, not directly
+    environment:
+      MONGO_INITDB_DATABASE: Tapomon
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Central Server (FastAPI + APScheduler) ─────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: tapomon-server
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8000:8000"          # Clients (and players) reach the server here
+    networks:
+      - tapomon-server-net
+    environment:
+      MONGO_URI: mongodb://mongodb:27017
+      MONGO_DB: Tapomon
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: "8000"
+      JWT_SECRET: "tapomon-dev-secret-change-in-prod"  # override in prod!
+      JWT_EXPIRATION_HOURS: "24"
+      IDLE_TICK_INTERVAL: "60"
+
+networks:
+  tapomon-server-net:
+    driver: bridge
+
+volumes:
+  mongo_server_data:
+    name: tapomon-server-mongo

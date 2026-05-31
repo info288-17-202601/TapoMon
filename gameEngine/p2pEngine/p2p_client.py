@@ -11,6 +11,7 @@ from __future__ import annotations
 import socket
 import sys
 import os
+import time
 
 # Permite importar módulos del proyecto (models, etc.)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -24,7 +25,7 @@ from p2pEngine.p2p_protocol import (
 )
 from p2pEngine.combat_engine import (
     calcular_attack_roll, calcular_armor_class, calcular_dano,
-    EstadoCombate,
+    EstadoCombate, TURN_DELAY_SEC,
 )
 from p2pEngine.p2p_server import ConexionP2P   # reutilizamos la clase de transporte
 
@@ -133,6 +134,7 @@ class ClienteCombate:
                 self._turno_defender()
 
             if not estado.batalla_terminada:
+                time.sleep(TURN_DELAY_SEC)
                 estado.siguiente_turno()
 
         # Escuchar GAME_OVER del host si no terminamos localmente
@@ -141,12 +143,12 @@ class ClienteCombate:
                 msg = self._conn.recibir()
                 if msg.tipo == MsgType.GAME_OVER:
                     ganador = msg.payload.get("ganador", "?")
-                    self._log(f"\n[CLIENT] 🏆 ¡Ganador: {ganador}!")
+                    self._log(f"\nGanador: {ganador}")
             except Exception:
                 pass
         else:
             ganador = self.tapo_local.nombre if estado.ganador_local else estado.tapo_rival.nombre
-            self._log(f"\n[CLIENT] 🏆 ¡Ganador: {ganador}!")
+            self._log(f"\nGanador: {ganador}")
 
     # ---------------------------------------------------------------- #
     #  Turno como atacante
@@ -157,11 +159,11 @@ class ClienteCombate:
         atacante = estado.tapo_local
         defensor = estado.tapo_rival
 
-        self._log(f"\n⚔️  Turno {estado.turno + 1} — {atacante.nombre} ATACA")
+        self._log(f"\nTurno {estado.turno + 1} — {atacante.nombre} ATACA")
 
         atk_info = calcular_attack_roll(atacante, defensor)
         self._log(
-            f"   🎲 D20: {atk_info['tiradas']}  "
+            f"   D20: {atk_info['tiradas']}  "
             f"+ mod_vel({atk_info['mod_vel']}) "
             f"= {atk_info['resultado']}  "
             f"[{atk_info['ventaja_tipo'] or 'normal'}]"
@@ -176,16 +178,16 @@ class ClienteCombate:
         # Esperar AC del defensor
         resp = self._conn.recibir()
         if resp.tipo == MsgType.SURRENDER:
-            self._log(f"   🏳️  {defensor.nombre} se rindió.")
+            self._log(f"   {defensor.nombre} se rindió.")
             estado.hp_rival = 0
             self._corriendo = False
             return
         if resp.tipo != MsgType.DEFENSE_ROLL:
-            self._log(f"   ⚠ Mensaje inesperado: {resp.tipo}")
+            self._log(f"   Mensaje inesperado: {resp.tipo}")
             return
 
         ac = resp.payload["armor_class"]
-        self._log(f"   🛡️  AC de {defensor.nombre}: {ac}")
+        self._log(f"   AC de {defensor.nombre}: {ac}")
 
         golpeo = atk_info["resultado"] >= ac
         if golpeo:
@@ -193,14 +195,14 @@ class ClienteCombate:
             dano      = dano_info["dano"]
             mult_str  = f" ×{dano_info['multiplicador']}" if dano_info["multiplicador"] != 1.0 else ""
             self._log(
-                f"   💥 GOLPE! D6={dano_info['d6']} "
+                f"   GOLPE! D6={dano_info['d6']} "
                 f"+{dano_info['mod_atk']} -{dano_info['mod_def']}"
                 f" = {dano_info['dano_base']}{mult_str} → {dano} daño"
             )
             estado.aplicar_dano_a_rival(dano)
         else:
             dano = 0
-            self._log(f"   ❌ Fallo. {atk_info['resultado']} < AC {ac}")
+            self._log(f"   Fallo. {atk_info['resultado']} < AC {ac}")
 
         self._conn.enviar(msg_damage(dano, golpeo))
         self._conn.enviar(msg_turn_end(estado.hp_local, estado.hp_rival))
@@ -215,30 +217,30 @@ class ClienteCombate:
         atacante = estado.tapo_rival
         defensor = estado.tapo_local
 
-        self._log(f"\n🛡️  Turno {estado.turno + 1} — {defensor.nombre} DEFIENDE")
+        self._log(f"\nTurno {estado.turno + 1} — {defensor.nombre} DEFIENDE")
 
         msg = self._conn.recibir()
         if msg.tipo == MsgType.SURRENDER:
-            self._log(f"   🏳️  {atacante.nombre} se rindió.")
+            self._log(f"   {atacante.nombre} se rindió.")
             estado.hp_rival = 0
             self._corriendo = False
             return
         if msg.tipo == MsgType.GAME_OVER:
             ganador = msg.payload.get("ganador", "?")
-            self._log(f"\n[CLIENT] 🏆 ¡Ganador: {ganador}!")
+            self._log(f"\nGanador: {ganador}")
             estado.hp_rival = 0
             self._corriendo = False
             return
         if msg.tipo != MsgType.ATTACK_ROLL:
-            self._log(f"   ⚠ Mensaje inesperado: {msg.tipo}")
+            self._log(f"   Mensaje inesperado: {msg.tipo}")
             return
 
         resultado_atk = msg.payload["resultado"]
-        self._log(f"   🎲 {atacante.nombre} tiró: {resultado_atk}")
+        self._log(f"   {atacante.nombre} tiró: {resultado_atk}")
 
         ac = calcular_armor_class(defensor)
         self._conn.enviar(msg_defense_roll(ac))
-        self._log(f"   🛡️  AC enviada: {ac}")
+        self._log(f"   AC enviada: {ac}")
 
         # Esperar daño
         msg_dmg = self._conn.recibir()
@@ -250,9 +252,9 @@ class ClienteCombate:
 
         if golpeo:
             estado.aplicar_dano_a_local(dano)
-            self._log(f"   💥 Recibimos {dano} de daño.")
+            self._log(f"   Recibimos {dano} de daño.")
         else:
-            self._log(f"   ✅ {defensor.nombre} esquivó el ataque.")
+            self._log(f"   {defensor.nombre} esquivó el ataque.")
 
         # Recibir fin de turno
         msg_te = self._conn.recibir()

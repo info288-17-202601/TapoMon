@@ -27,6 +27,7 @@ from models.tapo import Tapo, TipoTapo
 # ------------------------------------------------------------------ #
 
 BASE_AC = 10          # Armor Class base antes de agregar mod de velocidad
+TURN_DELAY_SEC = 1.0  # Pausa entre acciones para ritmo de combate
 
 # Tabla de ventajas de tipo (atacante → defensor)
 # "ventaja"    : daño × 1.5  (redondeado hacia abajo, mínimo 1)
