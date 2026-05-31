@@ -3,6 +3,7 @@ pygame_ui/screens/status_screen.py
 Pantalla principal del juego: muestra el estado del Tapo y acciones.
 """
 from __future__ import annotations
+import os
 import time
 import pygame
 from pygame_ui.screen_manager import Screen
@@ -30,6 +31,8 @@ class StatusScreen(Screen):
         self._time   = 0.0
         self._last_tick_t = time.time()
         self._death_handled = False
+        self._bg = None
+        self._name_font = None
  
         # Sprite
         self.sprite = TapoSprite(
@@ -37,6 +40,9 @@ class StatusScreen(Screen):
             tipo=tapo.estadistica.tipo.value,
             scale=1.4
         )
+
+        self._load_background()
+        self._load_name_font()
  
         self._build_widgets()
         self._refresh_bars()
@@ -100,6 +106,20 @@ class StatusScreen(Screen):
             color=C_BG3, hover_color=C_BG2,
             text_color=C_GRAY, accent_color=C_BORDER
         )
+
+    def _load_background(self) -> None:
+        bg_path = os.path.join(os.path.dirname(__file__), "..", "sprites", "fondo.jpg")
+        try:
+            img = pygame.image.load(bg_path)
+            self._bg = pygame.transform.smoothscale(img, (SCREEN_W, SCREEN_H)).convert()
+        except Exception:
+            self._bg = None
+
+    def _load_name_font(self) -> None:
+        try:
+            self._name_font = pygame.font.SysFont("Comic Sans MS", 32, bold=True)
+        except Exception:
+            self._name_font = None
  
     # ---------------------------------------------------------------- #
     #  Actualizar barras con datos del Tapo
@@ -227,15 +247,19 @@ class StatusScreen(Screen):
         tipo  = e.tipo.value
         col   = TYPE_COLORS.get(tipo, C_GRAY_LIGHT)
  
-        # Fondo con degradado suave (rectángulos apilados)
-        for i in range(20):
-            alpha = int(30 * (1 - i / 20))
-            c = tuple(min(255, int(col[j] * 0.15 + C_BG[j] * 0.85)) for j in range(3))
-            rect = pygame.Rect(0, i * (SCREEN_H // 20), SCREEN_W, SCREEN_H // 20 + 1)
-            pygame.draw.rect(surf, c, rect)
+        # Fondo
+        if self._bg:
+            surf.blit(self._bg, (0, 0))
+        else:
+            for i in range(20):
+                c = tuple(min(255, int(col[j] * 0.15 + C_BG[j] * 0.85)) for j in range(3))
+                rect = pygame.Rect(0, i * (SCREEN_H // 20), SCREEN_W, SCREEN_H // 20 + 1)
+                pygame.draw.rect(surf, c, rect)
  
         # Nombre + tipo
-        name_surf = fonts["title"].render(self.tapo.nombre, True, C_WHITE)
+        name_color = (40, 120, 255)
+        name_font = self._name_font or fonts["title"]
+        name_surf = name_font.render(self.tapo.nombre, True, name_color)
         tipo_surf = fonts["small"].render(f"[ {tipo} ]", True, col)
         surf.blit(name_surf, (SCREEN_W // 2 - name_surf.get_width() // 2, 14))
         surf.blit(tipo_surf, (SCREEN_W // 2 - tipo_surf.get_width() // 2, 50))
