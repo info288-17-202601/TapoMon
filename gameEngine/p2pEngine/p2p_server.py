@@ -12,6 +12,7 @@ import socket
 import threading
 import sys
 import os
+import time
 
 # Permite importar módulos del proyecto (models, etc.)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -26,7 +27,7 @@ from p2pEngine.p2p_protocol import (
 )
 from p2pEngine.combat_engine import (
     calcular_attack_roll, calcular_armor_class, calcular_dano,
-    EstadoCombate,
+    EstadoCombate, TURN_DELAY_SEC,
 )
 
 
@@ -171,6 +172,7 @@ class ServidorCombate:
                 self._turno_defender()
 
             if not estado.batalla_terminada:
+                time.sleep(TURN_DELAY_SEC)
                 estado.siguiente_turno()
 
         # Fin de batalla
