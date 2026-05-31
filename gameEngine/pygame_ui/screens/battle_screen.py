@@ -159,11 +159,11 @@ class BattleScreen(Screen):
     def _log_cb(self, msg: str):
         """Callback llamado desde el hilo de combate."""
         color = C_WHITE
-        if "GOLPE" in msg or "💥" in msg:
+        if "GOLPE" in msg:
             color = C_HP_LOW
-        elif "Fallo" in msg or "❌" in msg:
+        elif "Fallo" in msg:
             color = C_GRAY
-        elif "Ganador" in msg or "🏆" in msg:
+        elif "Ganador" in msg:
             color = (255, 200, 50)
         elif "HP" in msg:
             color = C_HP_HIGH
@@ -172,11 +172,16 @@ class BattleScreen(Screen):
 
         # Detectar rival
         if "presenta a:" in msg:
-            parts = msg.split("presenta a:")
+            parts = msg.split("presenta a:", 1)
             if len(parts) > 1:
-                nombre = parts[1].strip().split("(")[0].strip()
+                rest = parts[1].strip()
+                nombre = rest.split("(")[0].strip()
+                tipo = None
+                if "(" in rest and ")" in rest:
+                    tipo = rest.split("(", 1)[1].split(")", 1)[0].strip()
+                payload = f"{nombre}|{tipo}" if tipo else nombre
                 pygame.event.post(pygame.event.Event(COMBAT_LOG_EVENT, {
-                    "msg": f"__rival_name__{nombre}", "color": C_WHITE
+                    "msg": f"__rival_info__{payload}", "color": C_WHITE
                 }))
 
         # Detectar fin
@@ -226,11 +231,26 @@ class BattleScreen(Screen):
     def _go_back(self):
         self.manager.pop()
 
+    def _ensure_rival_sprite(self, tipo: str | None, hp_max: int | None = None) -> None:
+        if self.sprite_rival is None:
+            self.sprite_rival = TapoSprite(
+                SCREEN_W - 180, 300, tipo or "Normal", scale=1.2
+            )
+        if hp_max is not None:
+            self.hp_max_rival = max(1, hp_max)
+            if self.hp_rival <= 0:
+                self.hp_rival = self.hp_max_rival
+
     # ---------------------------------------------------------------- #
     #  Eventos
     # ---------------------------------------------------------------- #
 
     def handle_event(self, event: pygame.event.Event):
+        if self._status == "ended":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                self._go_back()
+            return
+
         self.btn_surrender.handle_event(event)
         self.btn_back.handle_event(event)
 
@@ -238,16 +258,27 @@ class BattleScreen(Screen):
             msg   = event.msg
             color = event.color
 
-            if msg.startswith("__rival_name__"):
-                nombre = msg[len("__rival_name__"):]
-                if self.sprite_rival is None:
-                    # Intentar detectar tipo desde el nombre (simplificado)
-                    self.sprite_rival = TapoSprite(SCREEN_W - 180, 300, "Normal", scale=1.2)
-                    self.hp_max_rival = 100
-                    self.hp_rival     = 100
+            if msg.startswith("__rival_info__"):
+                data = msg[len("__rival_info__"):]
+                nombre = data
+                tipo = None
+                if "|" in data:
+                    nombre, tipo = data.split("|", 1)
+                    nombre = nombre.strip()
+                    tipo = tipo.strip() or None
+
+                hp_max = None
+                if self._combat_obj and hasattr(self._combat_obj, "estado") and self._combat_obj.estado:
+                    rival = self._combat_obj.estado.tapo_rival
+                    tipo = rival.estadistica.tipo.value
+                    hp_max = rival.estadistica.vida
+
+                self._ensure_rival_sprite(tipo, hp_max)
             elif msg == "__hp_update__":
                 if self._combat_obj and hasattr(self._combat_obj, "estado") and self._combat_obj.estado:
                     est = self._combat_obj.estado
+                    if self.sprite_rival is None:
+                        self._ensure_rival_sprite(est.tapo_rival.estadistica.tipo.value, est.tapo_rival.estadistica.vida)
                     self.hp_local = est.hp_local
                     self.hp_rival = est.hp_rival
                     if self.hp_rival < self.hp_max_rival * 0.3:
@@ -348,6 +379,8 @@ class BattleScreen(Screen):
             surf.blit(overlay, (0, 0))
             txt = fonts["title"].render(f"{self._winner}", True, (255, 200, 50))
             surf.blit(txt, (SCREEN_W // 2 - txt.get_width() // 2, SCREEN_H // 2 - 40))
+            hint = fonts["small"].render("Click para continuar", True, C_GRAY_LIGHT)
+            surf.blit(hint, (SCREEN_W // 2 - hint.get_width() // 2, SCREEN_H // 2 + 10))
 
     def _draw_hp_bar(self, surf, x, y, w, hp, hp_max, name, fonts):
         ratio = max(0.0, hp / max(1, hp_max))
