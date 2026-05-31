@@ -31,7 +31,7 @@ from server.api.auth_routes import router as auth_router
 from server.api.dashboard_routes import router as dashboard_router
 from server.db.mongo import get_db, cerrar_conexion, crear_indices
 from server.services.idle_engine import ejecutar_idle_tick
-from server.config import SERVER_HOST, SERVER_PORT, IDLE_TICK_INTERVAL_SECONDS, SERVER_WORKER_COUNT
+from server.config import SERVER_HOST, SERVER_PORT, IDLE_TICK_INTERVAL_SECONDS
 
 
 def safe_print(emoji_text: str, fallback_text: str) -> None:
@@ -134,6 +134,5 @@ if __name__ == "__main__":
         "server.main:app",
         host=SERVER_HOST,
         port=SERVER_PORT,
-        workers=SERVER_WORKER_COUNT,
-        reload=False,
+        reload=True,
     )
