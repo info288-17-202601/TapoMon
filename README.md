@@ -63,6 +63,13 @@
 
 No se necesita Python, MongoDB ni ninguna dependencia instalada localmente.
 
+caso de usar windows hay que usar wsl2 y wsl integration activado en docker desktop
+en powershell
+    wsl --set-default-version 2
+    wsl --set-version Ubuntu 2
+    wsl --update
+en ubuntu:
+    sudo apt install x11-xserver-utils
 ---
 
 ## Inicio rápido — Servidor

@@ -8,6 +8,15 @@
 # ──────────────────────────────────────────────────────
 FROM python:3.13-slim
 
+RUN apt-get update && apt-get install -y \
+    libsdl2-dev \
+    libsdl2-image-dev \
+    libsdl2-mixer-dev \
+    libsdl2-ttf-dev \
+    libxext6 \
+    libx11-6 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Install dependencies first (layer cache)
@@ -22,4 +31,4 @@ COPY . .
 # (handled by docker-compose.client.yml via the P2P_HOST profile)
 EXPOSE 55201
 
-CMD ["python", "main.py"]
+CMD ["python", "main_pygame.py"]

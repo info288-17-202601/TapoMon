@@ -68,6 +68,11 @@ services:
       # Maps host.docker.internal → host machine IP on Linux.
       # Allows the client to reach the central server at localhost:8000.
       - "host.docker.internal:host-gateway"
+    volumes:
+      # 1. Share the Linux/WSL2 display socket so the window can render
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # 2. Live-reload your game code (assumes your code is in ./gameEngine and container uses /app)
+      - ./gameEngine:/app 
     environment:
       # ── Local database (sidecar MongoDB for this player) ────────────
       MONGO_URI: mongodb://mongodb-local:27017
@@ -83,6 +88,7 @@ services:
       P2P_HOST_IP: ${P2P_HOST_IP:-}
       # Host port advertised to the challenger (matches the ports: mapping above).
       P2P_HOST_PORT: ${P2P_PORT:-55201}
+      DISPLAY: ${DISPLAY}
 
 networks:
   tapomon-client-net:
