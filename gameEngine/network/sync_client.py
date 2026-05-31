@@ -47,13 +47,13 @@ class SyncClient:
     #  Autenticación
     # ------------------------------------------------------------------ #
 
-    def login(self, username: str, password: str) -> bool:
+    def login(self, username: str, password: str) -> dict | None:
         """
         Autentica con el servidor y guarda el JWT.
         
         Returns:
-            True si el login fue exitoso, False si falló
-            (credenciales inválidas o servidor no disponible).
+            Dict con los datos del usuario si el login fue exitoso,
+            None si falló (credenciales inválidas o servidor no disponible).
         """
         try:
             resp = requests.post(
@@ -63,20 +63,75 @@ class SyncClient:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                self._token = data["access_token"]
-                self._usuario_id = data["usuario_id"]
-                return True
-            return False
+                token = data.get("access_token")
+                usuario_id = data.get("usuario_id")
+                if not token or not usuario_id:
+                    print("  ⚠️  Respuesta inesperada del servidor al hacer login.")
+                    return None
+                self._token = token
+                self._usuario_id = usuario_id
+                return data
+            return None
         except requests.ConnectionError:
-            print("  ⚠️  Servidor no disponible. Continuando en modo offline.")
-            return False
+            print("  ⚠️  Servidor no disponible. Verifique su conexión.")
+            return None
         except Exception as e:
             print(f"  ⚠️  Error de conexión: {e}")
-            return False
+            return None
 
     # ------------------------------------------------------------------ #
     #  SyncService
     # ------------------------------------------------------------------ #
+
+    def register(
+        self,
+        username: str,
+        correo: str,
+        password: str,
+        usuario_id: str,
+        tapo_id: str,
+    ) -> dict | None:
+        """
+        Registra una cuenta nueva en el servidor.
+        
+        Returns:
+            Dict con los datos del usuario si el registro fue exitoso,
+            None si falló o el servidor no está disponible.
+        """
+        try:
+            resp = requests.post(
+                f"{self.base_url}/auth/register",
+                json={
+                    "username":   username,
+                    "correo":     correo,
+                    "password":   password,
+                    "usuario_id": usuario_id,
+                    "tapo_id":    tapo_id,
+                },
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 201:
+                data = resp.json()
+                token = data.get("access_token")
+                uid   = data.get("usuario_id")
+                if token and uid:
+                    self._token = token
+                    self._usuario_id = uid
+                return data
+            if resp.status_code == 409:
+                # El usuario ya existe en el servidor. Esto ocurre normalmente
+                # cuando el cliente y el servidor comparten la misma instancia
+                # de MongoDB: local_db ya escribió el usuario antes de que
+                # llegáramos aquí. Hacemos login para obtener el JWT.
+                return self.login(username, password)
+            print(f"  ⚠️  Error al registrar en el servidor: {resp.status_code}")
+            return None
+        except requests.ConnectionError:
+            print("  ⚠️  Servidor no disponible. Cuenta creada solo localmente.")
+            return None
+        except Exception as e:
+            print(f"  ⚠️  Error al registrar en el servidor: {e}")
+            return None
 
     def upload_state(self, tapo) -> bool:
         """

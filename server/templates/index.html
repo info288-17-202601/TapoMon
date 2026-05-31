@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TapoMon Developer Dashboard</title>
+    <!-- Fuente Outfit para una estética moderna y premium -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #080810;
+            --surface-color: rgba(255, 255, 255, 0.03);
+            --surface-border: rgba(255, 255, 255, 0.06);
+            --surface-border-hover: rgba(255, 255, 255, 0.15);
+            
+            --primary-glow: rgba(99, 102, 241, 0.15);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.2);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.2);
+            
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            
+            /* Tipos de Tapo */
+            --type-normal: linear-gradient(135deg, #9ca3af, #6b7280);
+            --type-fuego: linear-gradient(135deg, #f97316, #dc2626);
+            --type-agua: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            --type-planta: linear-gradient(135deg, #10b981, #047857);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+            padding-bottom: 50px;
+        }
+
+        /* Contenedor Principal */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.01);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--surface-border);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-area h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .badge-dev {
+            background: var(--primary-glow);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Botones del Sistema */
+        .btn {
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--surface-border);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--surface-border-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+            border-color: rgba(99, 102, 241, 0.8);
+        }
+
+        .btn-success {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        .btn-success:hover {
+            background: var(--success);
+            color: #fff;
+            box-shadow: 0 0 15px var(--success-glow);
+            border-color: rgba(16, 185, 129, 0.8);
+        }
+
+        /* Panel de Métricas Globales */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 20px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: border-color 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--surface-border-hover);
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: var(--primary);
+            filter: blur(50px);
+            opacity: 0.1;
+            right: -20px;
+            top: -20px;
+            border-radius: 50%;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .stat-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            margin-top: 10px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--surface-border);
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 0 0 var(--success-glow);
+            animation: pulse-animation 2s infinite;
+        }
+
+        .pulse.idle {
+            background: var(--warning);
+            animation: none;
+        }
+
+        @keyframes pulse-animation {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        /* Sección de Mascotas */
+        .section-header {
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Grid de Tarjetas */
+        .tapos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 25px;
+        }
+
+        /* Tarjeta de Mascota (Glassmorphic) */
+        .tapo-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--surface-border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .tapo-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--type-normal);
+        }
+
+        .tapo-card.tapo-fuego::before { background: var(--type-fuego); }
+        .tapo-card.tapo-agua::before { background: var(--type-agua); }
+        .tapo-card.tapo-planta::before { background: var(--type-planta); }
+
+        .tapo-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--surface-border-hover);
+            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.08);
+        }
+
+        /* Animación de destello al viajar en el tiempo */
+        @keyframes flash-active {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.6); }
+            50% { box-shadow: 0 0 30px 10px rgba(99, 102, 241, 0.3); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+
+        .tapo-card.flash {
+            animation: flash-active 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Card Header */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .tapo-info h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .owner-badge {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .owner-badge strong {
+            color: #c7d2fe;
+            font-weight: 500;
+        }
+
+        .badge-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+
+        .badge-type {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #fff;
+            background: var(--type-normal);
+        }
+
+        .badge-type.fuego { background: var(--type-fuego); }
+        .badge-type.agua { background: var(--type-agua); }
+        .badge-type.planta { background: var(--type-planta); }
+
+        .status-pill {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .status-pill.active {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .status-pill.idle {
+            background: rgba(245, 158, 11, 0.1);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.2);
+        }
+
+        /* Vitales (Barras) */
+        .vitales-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .vital-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .vital-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .vital-label {
+            color: var(--text-muted);
+            text-transform: capitalize;
+        }
+
+        .vital-value {
+            font-weight: 600;
+        }
+
+        .progress-track {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            border-radius: 10px;
+            width: 0%;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s ease;
+        }
+
+        /* Combat Stats (Grid de Números) */
+        .stats-section {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 12px 16px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            text-align: center;
+        }
+
+        .combat-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .combat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .combat-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* Card Footer / Acciones del desarrollador */
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            padding-top: 15px;
+            margin-top: 5px;
+        }
+
+        .sync-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .action-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .select-ff {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--surface-border);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px;
+            padding: 5px 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .select-ff:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--surface-border-hover);
+        }
+
+        .btn-ff {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-ff:hover {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Pantalla Vacía */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 80px 40px;
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px dashed var(--surface-border);
+            border-radius: 24px;
+            color: var(--text-muted);
+        }
+
+        .empty-state p {
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        /* Notificación Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .toast {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--surface-border);
+            color: #fff;
+            padding: 14px 22px;
+            border-radius: 14px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success { border-color: rgba(16, 185, 129, 0.3); }
+        .toast.error { border-color: rgba(239, 68, 68, 0.3); }
+
+        .toast-icon {
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .toast.success .toast-icon { color: var(--success); }
+        .toast.error .toast-icon { color: var(--danger); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Encabezado del Servidor -->
+        <header>
+            <div class="logo-area">
+                <h1>TapoMon Central</h1>
+                <span class="badge-dev">Developer Hub</span>
+            </div>
+            
+            <div class="header-actions">
+                <button class="btn btn-success" id="btn-seed" onclick="triggerSeed()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    Sembrar Base de Datos
+                </button>
+                <button class="btn btn-primary" id="btn-tick" onclick="triggerIdleTick()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Forzar Tick IDLE
+                </button>
+            </div>
+        </header>
+
+        <!-- Tarjetas de Estadísticas del Servidor -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Usuarios Registrados</div>
+                <div class="stat-value" id="val-users">-</div>
+                <div class="stat-indicator">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>Cuentas activas</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Mascotas Totales</div>
+                <div class="stat-value" id="val-tapos">-</div>
+                <div class="stat-indicator">
+                    <span>Instancias registradas</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Mascotas en Línea</div>
+                <div class="stat-value" style="color: #34d399;" id="val-active">-</div>
+                <div class="stat-indicator">
+                    <div class="pulse"></div>
+                    <span>ACTIVE</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Mascotas en Simulación</div>
+                <div class="stat-value" style="color: #fbbf24;" id="val-idle">-</div>
+                <div class="stat-indicator">
+                    <div class="pulse idle"></div>
+                    <span>IDLE</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección de Grid de Tapos -->
+        <section>
+            <div class="section-header">
+                <h2>Monitoreo de Mascotas (Instancias)</h2>
+                <button class="btn" style="padding: 6px 14px;" onclick="loadStats()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                    Refrescar
+                </button>
+            </div>
+
+            <div class="tapos-grid" id="tapos-container">
+                <!-- Las tarjetas de mascotas se generarán dinámicamente -->
+                <div class="empty-state">
+                    <p>No hay datos disponibles en la base de datos.</p>
+                    <button class="btn btn-primary" style="margin: 0 auto;" onclick="triggerSeed()">Sembrar Base de Datos Inicial</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Contenedor para Notificaciones Toast -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Lógica de Negocio JS -->
+    <script>
+        // -------------------------------------------------------------
+        //  Colores dinámicos para barras de vitales
+        // -------------------------------------------------------------
+        function getVitalColor(val) {
+            if (val >= 60) return 'var(--success)';
+            if (val >= 30) return 'var(--warning)';
+            return 'var(--danger)';
+        }
+
+        // -------------------------------------------------------------
+        //  Formatear fecha
+        // -------------------------------------------------------------
+        function formatTime(isoStr) {
+            if (!isoStr) return 'Nunca';
+            try {
+                const date = new Date(isoStr);
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } catch (e) {
+                return isoStr;
+            }
+        }
+
+        // -------------------------------------------------------------
+        //  Mostrar Notificación Toast
+        // -------------------------------------------------------------
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icon = type === 'success' ? '✓' : '✗';
+            toast.innerHTML = `<span class="toast-icon">${icon}</span> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            // Animación de entrada
+            setTimeout(() => toast.classList.add('show'), 50);
+            
+            // Auto eliminar después de 4s
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // -------------------------------------------------------------
+        //  Cargar estadísticas e instancias de mascotas
+        // -------------------------------------------------------------
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/dashboard/stats');
+                if (!res.ok) throw new Error('Error al conectar con la API.');
+                const data = await res.json();
+                
+                // Actualizar métricas globales
+                document.getElementById('val-users').innerText = data.stats.total_users;
+                document.getElementById('val-tapos').innerText = data.stats.total_tapos;
+                document.getElementById('val-active').innerText = data.stats.active_tapos;
+                document.getElementById('val-idle').innerText = data.stats.idle_tapos;
+                
+                // Generar tarjetas de mascotas
+                const container = document.getElementById('tapos-container');
+                container.innerHTML = '';
+                
+                if (data.tapos.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <p>No se encontraron mascotas en MongoDB.</p>
+                            <button class="btn btn-primary" style="margin: 0 auto;" onclick="triggerSeed()">Sembrar Base de Datos Inicial</button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                data.tapos.forEach(tapo => {
+                    const card = document.createElement('div');
+                    const tapoType = (tapo.Estadistica.tipo || 'Normal').toLowerCase();
+                    card.className = `tapo-card tapo-${tapoType}`;
+                    card.id = `card-${tapo.id_mascota}`;
+                    
+                    const isSystemActive = tapo.Estado_Sistema;
+                    const statusClass = isSystemActive ? 'active' : 'idle';
+                    const statusText = isSystemActive ? 'ACTIVE' : 'IDLE';
+                    
+                    // Crear filas de signos vitales
+                    let vitalesHtml = '';
+                    const vMap = tapo.Vitales || {};
+                    const vitalList = ['hambre', 'energia', 'salud', 'felicidad'];
+                    
+                    vitalList.forEach(key => {
+                        const val = vMap[key] !== undefined ? vMap[key] : 100;
+                        const barColor = getVitalColor(val);
+                        vitalesHtml += `
+                            <div class="vital-row">
+                                <div class="vital-info">
+                                    <span class="vital-label">${key}</span>
+                                    <span class="vital-value">${val}%</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-bar" style="width: ${val}%; background-color: ${barColor}"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <div class="tapo-info">
+                                <h3>${tapo.Nombre}</h3>
+                                <div class="owner-badge">Dueño: <strong>${tapo.Propietario}</strong></div>
+                            </div>
+                            <div class="badge-group">
+                                <span class="badge-type ${tapoType}">${tapo.Estadistica.tipo || 'Normal'}</span>
+                                <span class="status-pill ${statusClass}">
+                                    <span class="pulse ${statusClass}"></span>
+                                    ${statusText}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="vitales-section">
+                            ${vitalesHtml}
+                        </div>
+                        
+                        <div class="stats-section">
+                            <div class="combat-stat">
+                                <span class="combat-label">vida</span>
+                                <span class="combat-value">${tapo.Estadistica.vida || 0}</span>
+                            </div>
+                            <div class="combat-stat">
+                                <span class="combat-label">frz</span>
+                                <span class="combat-value">${tapo.Estadistica.fuerza || 0}</span>
+                            </div>
+                            <div class="combat-stat">
+                                <span class="combat-label">def</span>
+                                <span class="combat-value">${tapo.Estadistica.defensa || 0}</span>
+                            </div>
+                            <div class="combat-stat">
+                                <span class="combat-label">vel</span>
+                                <span class="combat-value">${tapo.Estadistica.velocidad || 0}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="card-footer">
+                            <div class="sync-time">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                <span>Sync: ${formatTime(tapo.Last_Sync)}</span>
+                            </div>
+                            <div class="action-group">
+                                <select class="select-ff" id="ff-select-${tapo.id_mascota}">
+                                    <option value="0.5">-30 M</option>
+                                    <option value="1">-1 H</option>
+                                    <option value="5" selected>-5 H</option>
+                                    <option value="10">-10 H</option>
+                                    <option value="24">-24 H</option>
+                                </select>
+                                <button class="btn-ff" onclick="triggerFastForward('${tapo.id_mascota}')">Viajar</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                showToast(`Error de conexión: ${err.message}`, 'error');
+            }
+        }
+
+        // -------------------------------------------------------------
+        //  Acción: Sembrar Base de Datos
+        // -------------------------------------------------------------
+        async function triggerSeed() {
+            const btn = document.getElementById('btn-seed');
+            btn.disabled = true;
+            btn.innerText = 'Sembrando...';
+            
+            try {
+                const res = await fetch('/api/dashboard/seed', { method: 'POST' });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(data.message || 'Base de datos sembrada correctamente.', 'success');
+                    await loadStats();
+                } else {
+                    showToast(data.detail || 'Fallo al sembrar la base de datos.', 'error');
+                }
+            } catch (err) {
+                showToast(`Error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    Sembrar Base de Datos
+                `;
+            }
+        }
+
+        // -------------------------------------------------------------
+        //  Acción: Forzar Tick IDLE
+        // -------------------------------------------------------------
+        async function triggerIdleTick() {
+            const btn = document.getElementById('btn-tick');
+            btn.disabled = true;
+            btn.innerText = 'Calculando...';
+            
+            try {
+                const res = await fetch('/api/dashboard/tick', { method: 'POST' });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(data.message, 'success');
+                    await loadStats();
+                } else {
+                    showToast(data.detail || 'Fallo al correr el tick IDLE.', 'error');
+                }
+            } catch (err) {
+                showToast(`Error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Forzar Tick IDLE
+                `;
+            }
+        }
+
+        // -------------------------------------------------------------
+        //  Acción: Viaje en el tiempo (Fast Forward)
+        // -------------------------------------------------------------
+        async function triggerFastForward(tapoId) {
+            const hoursVal = parseFloat(document.getElementById(`ff-select-${tapoId}`).value);
+            const card = document.getElementById(`card-${tapoId}`);
+            
+            try {
+                const res = await fetch('/api/dashboard/fast-forward', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tapo_id: tapoId, hours: hoursVal })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    // Animación de flash en la tarjeta
+                    card.classList.add('flash');
+                    showToast(data.message, 'success');
+                    
+                    // Esperar fin de la animación antes de recargar
+                    setTimeout(async () => {
+                        await loadStats();
+                    }, 800);
+                } else {
+                    showToast(data.detail || 'Error al viajar en el tiempo.', 'error');
+                }
+            } catch (err) {
+                showToast(`Error: ${err.message}`, 'error');
+            }
+        }
+
+        // Carga inicial
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+        });
+    </script>
+</body>
+</html>

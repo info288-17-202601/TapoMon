@@ -29,6 +29,49 @@ def _hash_password(plain: str) -> str:
     return hashlib.sha256(plain.encode()).hexdigest()
 
 
+def registrar_usuario(
+    username: str,
+    correo: str,
+    password: str,
+    usuario_id: str,
+    tapo_id: str,
+) -> dict | None:
+    """
+    Crea un usuario nuevo en la base de datos del servidor.
+
+    Usa los mismos UUIDs que genera el cliente para que ambas bases
+    de datos (local y servidor) compartan identificadores consistentes.
+
+    Args:
+        username:   Nombre de usuario.
+        correo:     Correo electrónico.
+        password:   Contraseña en texto plano (se hashea antes de guardar).
+        usuario_id: UUID generado por el cliente.
+        tapo_id:    UUID de la mascota, generado por el cliente.
+
+    Returns:
+        El documento del usuario creado, o None si el username ya existe.
+    """
+    db = get_db()
+
+    # Verificar unicidad de username (case-insensitive)
+    existing = db[COL_USUARIOS].find_one(
+        {"Username": {"$regex": f"^{username}$", "$options": "i"}}
+    )
+    if existing is not None:
+        return None
+
+    usuario_doc = {
+        "Id":       usuario_id,
+        "Username": username,
+        "Correo":   correo,
+        "Password": _hash_password(password),
+        "Tapo_ID":  tapo_id,
+    }
+    db[COL_USUARIOS].insert_one(usuario_doc)
+    return usuario_doc
+
+
 def autenticar_usuario(username: str, password: str) -> dict | None:
     """
     Verifica credenciales contra la base de datos.

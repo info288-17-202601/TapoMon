@@ -14,16 +14,32 @@ Justificación:
 """
 from __future__ import annotations
 
+import sys
+import os
+# Agregar el directorio padre al PATH de python para poder resolver 'server' de forma absoluta
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from fastapi.responses import HTMLResponse
+
 from server.api.sync_routes import router as sync_router
 from server.api.auth_routes import router as auth_router
+from server.api.dashboard_routes import router as dashboard_router
 from server.db.mongo import get_db, cerrar_conexion, crear_indices
 from server.services.idle_engine import ejecutar_idle_tick
 from server.config import SERVER_HOST, SERVER_PORT, IDLE_TICK_INTERVAL_SECONDS
+
+
+def safe_print(emoji_text: str, fallback_text: str) -> None:
+    """Imprime el texto con emoji, si hay un error de codificación usa el fallback sin emojis."""
+    try:
+        print(emoji_text)
+    except UnicodeEncodeError:
+        print(fallback_text)
 
 
 # ------------------------------------------------------------------ #
@@ -40,7 +56,7 @@ async def lifespan(app: FastAPI):
     - Shutdown: detener scheduler, cerrar conexión a MongoDB.
     """
     # --- Startup ---
-    print("🚀  Iniciando servidor TapoMon...")
+    safe_print("🚀  Iniciando servidor TapoMon...", "[SERVER] Iniciando servidor TapoMon...")
     get_db()                # Forzar conexión a MongoDB
     crear_indices()         # Crear índices necesarios
 
@@ -53,12 +69,15 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     scheduler.start()
-    print(f"⏰  Idle Simulation programada cada {IDLE_TICK_INTERVAL_SECONDS}s.")
+    safe_print(
+        f"⏰  Idle Simulation programada cada {IDLE_TICK_INTERVAL_SECONDS}s.",
+        f"[SERVER] Idle Simulation programada cada {IDLE_TICK_INTERVAL_SECONDS}s."
+    )
 
     yield
 
     # --- Shutdown ---
-    print("🛑  Deteniendo servidor TapoMon...")
+    safe_print("🛑  Deteniendo servidor TapoMon...", "[SERVER] Deteniendo servidor TapoMon...")
     scheduler.shutdown(wait=False)
     cerrar_conexion()
 
@@ -79,6 +98,21 @@ app = FastAPI(
 
 app.include_router(auth_router, prefix="/auth", tags=["Autenticación"])
 app.include_router(sync_router, prefix="/sync", tags=["SyncService"])
+app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Dashboard"])
+
+
+@app.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])
+async def serve_dashboard():
+    """Sirve la interfaz web del Dashboard de monitoreo."""
+    try:
+        with open("server/templates/index.html", "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        return HTMLResponse(
+            status_code=404,
+            content="<h3>Error: El archivo de la plantilla index.html no fue encontrado.</h3>"
+        )
 
 
 @app.get("/", tags=["Health"])

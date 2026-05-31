@@ -23,9 +23,9 @@ from server.services.idle_engine import (
     calcular_ticks_pendientes,
     aplicar_degradacion,
     _clamp,
+    IDLE_SECONDS_PER_TICK,
 )
 from server.config import (
-    IDLE_TICK_INTERVAL_SECONDS,
     TICK_HAMBRE, TICK_ENERGIA, TICK_FELICIDAD, TICK_SALUD_BASE,
 )
 
@@ -56,14 +56,14 @@ class TestCalcularTicks:
         assert calcular_ticks_pendientes(now) == 0
 
     def test_un_tick(self):
-        """Después de 60 segundos (default), 1 tick."""
-        hace = (datetime.now() - timedelta(seconds=IDLE_TICK_INTERVAL_SECONDS + 1)).isoformat()
+        """Después de 30 minutos (default), 1 tick."""
+        hace = (datetime.now() - timedelta(seconds=IDLE_SECONDS_PER_TICK + 1)).isoformat()
         ticks = calcular_ticks_pendientes(hace)
         assert ticks >= 1
 
     def test_multiples_ticks(self):
-        """Después de 5 minutos, debería haber ~5 ticks (con intervalo de 60s)."""
-        hace = (datetime.now() - timedelta(minutes=5)).isoformat()
+        """Después de 2.5 horas, debería haber ~5 ticks (con intervalo de 30 minutos)."""
+        hace = (datetime.now() - timedelta(minutes=150)).isoformat()
         ticks = calcular_ticks_pendientes(hace)
         assert ticks >= 4  # Tolerancia de 1 por timing
 
@@ -93,60 +93,59 @@ class TestAplicarDegradacion:
         return doc
 
     def test_un_tick_degrada_vitales(self):
-        """Un tick reduce hambre, energía y felicidad."""
-        doc = self._make_tapo_doc()
-        aplicar_degradacion(doc, 1)
+        """Un tick reduce hambre, energía y felicidad (al menos la degradación base)."""
+        doc = self._make_tapo_doc(vitales={"independencia": 0})  # sin acciones autónomas
+        doc_out, _ = aplicar_degradacion(doc, 1)
 
-        assert doc["Vitales"]["hambre"]    == 100 + TICK_HAMBRE      # 95
-        assert doc["Vitales"]["energia"]   == 100 + TICK_ENERGIA     # 97
-        assert doc["Vitales"]["felicidad"] == 100 + TICK_FELICIDAD   # 96
+        assert doc_out["Vitales"]["hambre"]    == 100 + TICK_HAMBRE      # 95
+        assert doc_out["Vitales"]["energia"]   == 100 + TICK_ENERGIA     # 97
+        assert doc_out["Vitales"]["felicidad"] == 100 + TICK_FELICIDAD   # 96
 
     def test_vitales_no_bajan_de_cero(self):
         """Los vitales nunca bajan de 0."""
-        doc = self._make_tapo_doc(vitales={"hambre": 2, "energia": 1, "felicidad": 1})
-        aplicar_degradacion(doc, 1)
+        doc = self._make_tapo_doc(vitales={"hambre": 2, "energia": 1, "felicidad": 1, "independencia": 0})
+        doc_out, _ = aplicar_degradacion(doc, 1)
 
-        assert doc["Vitales"]["hambre"]    >= 0
-        assert doc["Vitales"]["energia"]   >= 0
-        assert doc["Vitales"]["felicidad"] >= 0
+        assert doc_out["Vitales"]["hambre"]    >= 0
+        assert doc_out["Vitales"]["energia"]   >= 0
+        assert doc_out["Vitales"]["felicidad"] >= 0
 
     def test_salud_cae_con_hambre_cero(self):
         """La salud baja si el hambre llega a 0."""
-        doc = self._make_tapo_doc(vitales={"hambre": 0})
+        doc = self._make_tapo_doc(vitales={"hambre": 0, "independencia": 0})
         salud_antes = doc["Vitales"]["salud"]
-        aplicar_degradacion(doc, 1)
+        doc_out, _ = aplicar_degradacion(doc, 1)
 
-        assert doc["Vitales"]["salud"] < salud_antes
+        assert doc_out["Vitales"]["salud"] < salud_antes
 
     def test_salud_cae_con_energia_cero(self):
         """La salud baja si la energía llega a 0."""
-        doc = self._make_tapo_doc(vitales={"energia": 0})
+        doc = self._make_tapo_doc(vitales={"energia": 0, "independencia": 0})
         salud_antes = doc["Vitales"]["salud"]
-        aplicar_degradacion(doc, 1)
+        doc_out, _ = aplicar_degradacion(doc, 1)
 
-        assert doc["Vitales"]["salud"] < salud_antes
+        assert doc_out["Vitales"]["salud"] < salud_antes
 
     def test_vida_cae_con_salud_cero(self):
         """La vida baja si la salud llega a 0."""
-        doc = self._make_tapo_doc(vitales={"hambre": 0, "energia": 0, "salud": 0})
+        doc = self._make_tapo_doc(vitales={"hambre": 0, "energia": 0, "salud": 0, "independencia": 0})
         vida_antes = doc["Estadistica"]["vida"]
-        aplicar_degradacion(doc, 1)
+        doc_out, _ = aplicar_degradacion(doc, 1)
 
-        assert doc["Estadistica"]["vida"] < vida_antes
+        assert doc_out["Estadistica"]["vida"] < vida_antes
 
     def test_no_degrada_si_muerto(self):
         """Si la mascota tiene vida == 0, no se degrada más."""
         doc = self._make_tapo_doc(estadistica={"vida": 0})
-        aplicar_degradacion(doc, 10)
+        doc_out, _ = aplicar_degradacion(doc, 10)
 
-        # Los vitales no deberían cambiar porque la mascota ya está muerta
-        assert doc["Estadistica"]["vida"] == 0
+        assert doc_out["Estadistica"]["vida"] == 0
 
     def test_degradacion_acumulativa(self):
-        """Múltiples ticks degradan acumulativamente."""
-        doc = self._make_tapo_doc()
-        aplicar_degradacion(doc, 3)
+        """Múltiples ticks degradan acumulativamente (sin acciones autónomas)."""
+        doc = self._make_tapo_doc(vitales={"independencia": 0})
+        doc_out, _ = aplicar_degradacion(doc, 3)
 
-        assert doc["Vitales"]["hambre"]    == 100 + (TICK_HAMBRE * 3)     # 85
-        assert doc["Vitales"]["energia"]   == 100 + (TICK_ENERGIA * 3)    # 91
-        assert doc["Vitales"]["felicidad"] == 100 + (TICK_FELICIDAD * 3)  # 88
+        assert doc_out["Vitales"]["hambre"]    == 100 + (TICK_HAMBRE * 3)     # 85
+        assert doc_out["Vitales"]["energia"]   == 100 + (TICK_ENERGIA * 3)    # 91
+        assert doc_out["Vitales"]["felicidad"] == 100 + (TICK_FELICIDAD * 3)  # 88

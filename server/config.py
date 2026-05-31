@@ -54,6 +54,21 @@ STAT_MIN = 0
 STAT_MAX = 100
 
 # ------------------------------------------------------------------ #
+#  Independencia Mechanic (self-actions during IDLE)
+# ------------------------------------------------------------------ #
+
+# Independencia crece +1 por tick cuando salud >= este umbral
+INDEPENDENCIA_GROWTH             = int(os.getenv("INDEPENDENCIA_GROWTH", "1"))
+INDEPENDENCIA_HEALTH_THRESHOLD   = int(os.getenv("INDEPENDENCIA_HEALTH_THRESHOLD", "60"))
+
+# Efectos de las acciones autónomas
+SELF_FEED_HAMBRE     = int(os.getenv("SELF_FEED_HAMBRE",     "25"))   # comer solo
+SELF_PLAY_FELICIDAD  = int(os.getenv("SELF_PLAY_FELICIDAD",  "20"))   # jugar solo: +felicidad
+SELF_PLAY_ENERGIA    = int(os.getenv("SELF_PLAY_ENERGIA",    "-10"))  # jugar/entrenar: -energía
+SELF_PLAY_ENERGIA_MIN = int(os.getenv("SELF_PLAY_ENERGIA_MIN", "15")) # energía mínima para jugar/entrenar
+SELF_TRAIN_STAT      = int(os.getenv("SELF_TRAIN_STAT",      "1"))    # entrenar solo: +stat
+
+# ------------------------------------------------------------------ #
 #  Colecciones MongoDB (consistente con el cliente)
 # ------------------------------------------------------------------ #
 COL_USUARIOS = "Usuarios"
