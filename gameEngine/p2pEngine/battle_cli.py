@@ -90,10 +90,20 @@ def flujo_host(tapo: Tapo) -> None:
     mostrar_info_tapo(tapo)
 
     import socket
-    ip_local = socket.gethostbyname(socket.gethostname())
-    print(f"\n  📡 Tu IP local: {ip_local}")
-    print(f"  🔌 Puerto:      {DEFAULT_PORT}")
-    print(f"\n  Comparte esta IP con tu rival para que se conecte.")
+    import os
+    # P2P_HOST_IP: set by docker-compose so the player sees the real
+    # machine IP instead of the container's internal IP.
+    advertised_ip = (
+        os.getenv("P2P_HOST_IP")
+        or socket.gethostbyname(socket.gethostname())
+    )
+    # P2P_HOST_PORT: the host port mapped to container:55201.
+    # May differ from DEFAULT_PORT when two clients run on the same machine.
+    advertised_port = int(os.getenv("P2P_HOST_PORT", str(DEFAULT_PORT)))
+
+    print(f"\n  📡 Tu IP:    {advertised_ip}")
+    print(f"  🔌 Puerto:   {advertised_port}")
+    print(f"\n  Comparte estos datos con tu rival para que se conecte.")
     print(f"  Presiona Ctrl+C para cancelar.\n")
 
     servidor = ServidorCombate(tapo, callback_log=_log_combate)
@@ -106,6 +116,7 @@ def flujo_host(tapo: Tapo) -> None:
     _pausa_final()
 
 
+
 # ──────────────────────────────────────────────────────────────────── #
 #  Flujo CHALLENGER
 # ──────────────────────────────────────────────────────────────────── #
@@ -116,12 +127,23 @@ def flujo_challenger(tapo: Tapo) -> None:
     _titulo("MODO CHALLENGER  —  Conectándose al rival...")
     mostrar_info_tapo(tapo)
 
-    ip_host = input("  🌐 IP del host: ").strip()
-    if not ip_host:
-        print("  IP vacía. Cancelando.")
+    ip_port = input("  🌐 IP:PUERTO del host (ej: 127.0.0.1:55201): ").strip()
+    if not ip_port:
+        print("  Entrada vacía. Cancelando.")
         return
 
-    cliente = ClienteCombate(tapo, host_ip=ip_host, callback_log=_log_combate)
+    if ":" in ip_port:
+        ip_host, port_str = ip_port.split(":", 1)
+        try:
+            port = int(port_str)
+        except ValueError:
+            print("  Puerto inválido. Cancelando.")
+            return
+    else:
+        ip_host = ip_port
+        port = DEFAULT_PORT
+
+    cliente = ClienteCombate(tapo, host_ip=ip_host, port=port, callback_log=_log_combate)
 
     try:
         cliente.conectar()

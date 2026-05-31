@@ -82,6 +82,8 @@ async def login(request: LoginRequest):
         access_token=token,
         usuario_id=usuario_doc["Id"],
         username=usuario_doc["Username"],
+        correo=usuario_doc["Correo"],
+        tapo_id=usuario_doc["Tapo_ID"],
     )
 
 
@@ -116,4 +118,6 @@ async def register(request: RegisterRequest):
         access_token=token,
         usuario_id=usuario_doc["Id"],
         username=usuario_doc["Username"],
+        correo=usuario_doc["Correo"],
+        tapo_id=usuario_doc["Tapo_ID"],
     )

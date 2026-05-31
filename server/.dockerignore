@@ -1,0 +1,11 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+mongo_data/
+.pytest_cache
+*.egg-info
+.git
+.gitignore

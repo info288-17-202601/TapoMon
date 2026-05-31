@@ -47,13 +47,13 @@ class SyncClient:
     #  Autenticación
     # ------------------------------------------------------------------ #
 
-    def login(self, username: str, password: str) -> bool:
+    def login(self, username: str, password: str) -> dict | None:
         """
         Autentica con el servidor y guarda el JWT.
         
         Returns:
-            True si el login fue exitoso, False si falló
-            (credenciales inválidas o servidor no disponible).
+            Dict con los datos del usuario si el login fue exitoso,
+            None si falló (credenciales inválidas o servidor no disponible).
         """
         try:
             resp = requests.post(
@@ -67,41 +67,36 @@ class SyncClient:
                 usuario_id = data.get("usuario_id")
                 if not token or not usuario_id:
                     print("  ⚠️  Respuesta inesperada del servidor al hacer login.")
-                    return False
+                    return None
                 self._token = token
                 self._usuario_id = usuario_id
-                return True
-            return False
+                return data
+            return None
         except requests.ConnectionError:
-            print("  ⚠️  Servidor no disponible. Continuando en modo offline.")
-            return False
+            print("  ⚠️  Servidor no disponible. Verifique su conexión.")
+            return None
         except Exception as e:
             print(f"  ⚠️  Error de conexión: {e}")
-            return False
+            return None
 
     # ------------------------------------------------------------------ #
     #  SyncService
     # ------------------------------------------------------------------ #
 
-    def register(self, username: str, correo: str, password: str,
-                 usuario_id: str, tapo_id: str) -> bool:
+    def register(
+        self,
+        username: str,
+        correo: str,
+        password: str,
+        usuario_id: str,
+        tapo_id: str,
+    ) -> dict | None:
         """
         Registra una cuenta nueva en el servidor.
-
-        Debe llamarse justo después de crear el usuario en la DB local,
-        pasando los mismos UUIDs para que ambas bases de datos sean
-        consistentes desde el primer momento.
-
-        Args:
-            username:   Nombre de usuario.
-            correo:     Correo electrónico.
-            password:   Contraseña en texto plano.
-            usuario_id: UUID del usuario generado localmente.
-            tapo_id:    UUID de la mascota generado localmente.
-
+        
         Returns:
-            True si el registro fue exitoso (o ya existía),
-            False si el servidor no está disponible.
+            Dict con los datos del usuario si el registro fue exitoso,
+            None si falló o el servidor no está disponible.
         """
         try:
             resp = requests.post(
@@ -122,7 +117,7 @@ class SyncClient:
                 if token and uid:
                     self._token = token
                     self._usuario_id = uid
-                return True
+                return data
             if resp.status_code == 409:
                 # El usuario ya existe en el servidor. Esto ocurre normalmente
                 # cuando el cliente y el servidor comparten la misma instancia
@@ -130,13 +125,13 @@ class SyncClient:
                 # llegáramos aquí. Hacemos login para obtener el JWT.
                 return self.login(username, password)
             print(f"  ⚠️  Error al registrar en el servidor: {resp.status_code}")
-            return False
+            return None
         except requests.ConnectionError:
             print("  ⚠️  Servidor no disponible. Cuenta creada solo localmente.")
-            return False
+            return None
         except Exception as e:
             print(f"  ⚠️  Error al registrar en el servidor: {e}")
-            return False
+            return None
 
     def upload_state(self, tapo) -> bool:
         """

@@ -32,30 +32,36 @@ sync_client = SyncClient()
 def flujo_login() -> tuple | None:
     """Retorna (usuario, tapo) o None si falla."""
     username, password = ui.form_login()
-    usuario = local_db.buscar_usuario_por_username(username)
 
-    if usuario is None or not usuario.check_password(password):
-        ui.mensaje_error("Usuario o contraseña incorrectos.")
+    print("  ☁️  Autenticando con el servidor central...")
+    auth_data = sync_client.login(username, password)
+    
+    if not auth_data:
+        ui.mensaje_error("Credenciales incorrectas o el servidor no está disponible.")
+        return None
+        
+    usuario_id = auth_data["usuario_id"]
+    correo = auth_data["correo"]
+    tapo_id = auth_data["tapo_id"]
+
+    # Descargar estado actualizado desde el servidor
+    server_state = sync_client.resume(usuario_id)
+    if not server_state or not server_state.get("tapo"):
+        ui.mensaje_error("No se pudo obtener el estado de la mascota desde el servidor.")
         return None
 
-    # Autenticar con el servidor central (obtiene JWT)
-    sync_client.login(username, password)
+    from models.usuario import Usuario
+    usuario = Usuario(id=usuario_id, username=username, correo=correo, tapo_id=tapo_id)
+    usuario.set_password(password)
 
-    # Intentar descargar estado actualizado desde el servidor
-    if sync_client.is_connected():
-        server_state = sync_client.resume(usuario.id)
-        if server_state and server_state.get("tapo"):
-            tapo = Tapo.from_dict(server_state["tapo"])
-            local_db.guardar_tapo(tapo)
-            print("  ☁️  Estado sincronizado desde el servidor.")
-            return usuario, tapo
+    tapo = Tapo.from_dict(server_state["tapo"])
 
-    # Fallback: cargar desde DB local
-    tapo = local_db.cargar_tapo(usuario.tapo_id)
-    if tapo is None:
-        ui.mensaje_error("No se encontró la mascota asociada a este usuario.")
-        return None
-
+    # Upsert a DB local: permite loguearse desde otra máquina sin problemas
+    local_db.guardar_usuario(usuario)
+    local_db.guardar_tapo(tapo)
+    local_db._crear_indices()
+    
+    print("  ☁️  Perfil y estado sincronizados desde el servidor.")
     return usuario, tapo
 
 
@@ -63,24 +69,45 @@ def flujo_registro() -> tuple | None:
     """Registra un usuario nuevo y retorna (usuario, tapo)."""
     username, correo, password, nombre_tapo, tipo = ui.form_registro()
 
-    if local_db.buscar_usuario_por_username(username):
-        ui.mensaje_error("Ese nombre de usuario ya existe.")
-        return None
+    import uuid
+    from models.tapo import TipoTapo
+    usuario_id = str(uuid.uuid4())
+    tapo_id = str(uuid.uuid4())
 
-    usuario, tapo = local_db.registrar_nuevo_usuario(
-        username, correo, password, nombre_tapo, tipo
-    )
-
-    # Replicar la cuenta en el servidor central para que el sync funcione.
-    # Si el servidor no está disponible, la cuenta queda solo en la DB local
-    # y el juego continúa en modo offline sin interrupciones.
-    sync_client.register(
+    print("  ☁️  Registrando cuenta en el servidor central...")
+    auth_data = sync_client.register(
         username=username,
         correo=correo,
         password=password,
-        usuario_id=usuario.id,
-        tapo_id=tapo.id_mascota,
+        usuario_id=usuario_id,
+        tapo_id=tapo_id,
     )
+
+    if not auth_data:
+        ui.mensaje_error("Error al registrar. El usuario ya existe o el servidor no está disponible.")
+        return None
+
+    # Si el servidor acepta, creamos los objetos localmente
+    from models.usuario import Usuario
+    from models.tapo import Vitales, Estadistica
+    
+    usuario = Usuario(id=usuario_id, username=username, correo=correo, tapo_id=tapo_id)
+    usuario.set_password(password)
+
+    tipo_enum = TipoTapo(tipo) if hasattr(TipoTapo, tipo) else TipoTapo.NORMAL
+    tapo = Tapo(
+        id_mascota=tapo_id,
+        nombre=nombre_tapo,
+        vitales=Vitales(),
+        estadistica=Estadistica(tipo=tipo_enum),
+    )
+
+    local_db.guardar_usuario(usuario)
+    local_db.guardar_tapo(tapo)
+    local_db._crear_indices()
+
+    # Subir el estado inicial
+    sync_client.upload_state(tapo)
 
     ui.mensaje_ok(f"¡Cuenta creada! Bienvenido, {username}. Tu Tapo '{nombre_tapo}' te espera.")
     return usuario, tapo

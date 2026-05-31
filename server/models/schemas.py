@@ -120,6 +120,8 @@ class TokenResponse(BaseModel):
     token_type:   str = "bearer"
     usuario_id:   str
     username:     str
+    correo:       str
+    tapo_id:      str
 
 
 class ErrorResponse(BaseModel):
