@@ -81,17 +81,13 @@ def calcular_ticks_pendientes(last_sync_str: str) -> int:
 
 def intentar_accion_autonoma(tapo_doc: dict, tick_n: int) -> str | None:
     """
-    Intenta que el Tapo realice una acción autónoma en base a su independencia.
+    Intenta que el Tapo realice una acción autónoma en base a su independencia (Sin gastar energia).
 
     Probabilidad de actuar = independencia / 100.
     Pool ponderado:
         - Comer    40 % → hambre + SELF_FEED_HAMBRE
-        - Jugar    30 % → felicidad + SELF_PLAY_FELICIDAD, energía + SELF_PLAY_ENERGIA
-        - Entrenar 30 % → stat aleatorio (fuerza/defensa/velocidad) + SELF_TRAIN_STAT,
-                          energía + SELF_PLAY_ENERGIA
-
-    Si la energía es insuficiente para jugar o entrenar, cae back a comer.
-
+        - Jugar    30 % → felicidad + SELF_PLAY_FELICIDAD
+        - Entrenar 30 % → stat aleatorio (fuerza/defensa/velocidad) + SELF_TRAIN_STAT
     Args:
         tapo_doc: Documento del Tapo (Vitales y Estadistica se modifican in-place).
         tick_n:   Índice del tick actual (para logging futuro).
@@ -112,8 +108,6 @@ def intentar_accion_autonoma(tapo_doc: dict, tick_n: int) -> str | None:
     if random.random() >= independencia / 100:
         return None
 
-    energia = vitales.get("energia", 0)
-
     # Selección de acción ponderada
     roll = random.random()
     if roll < 0.40:
@@ -123,10 +117,6 @@ def intentar_accion_autonoma(tapo_doc: dict, tick_n: int) -> str | None:
     else:
         action = "train"
 
-    # Fallback a comer si no hay energía suficiente
-    if action in ("play", "train") and energia < SELF_PLAY_ENERGIA_MIN:
-        action = "eat"
-
     accion_label: str
 
     if action == "eat":
@@ -135,13 +125,11 @@ def intentar_accion_autonoma(tapo_doc: dict, tick_n: int) -> str | None:
 
     elif action == "play":
         vitales["felicidad"] = _clamp(vitales.get("felicidad", 0) + SELF_PLAY_FELICIDAD)
-        vitales["energia"]   = _clamp(vitales.get("energia",   0) + SELF_PLAY_ENERGIA)
         accion_label = "jugó solo"
 
     else:  # train
         stat = random.choice(["fuerza", "defensa", "velocidad"])
         estadistica[stat]    = _clamp(estadistica.get(stat, 0) + SELF_TRAIN_STAT)
-        vitales["energia"]   = _clamp(vitales.get("energia", 0) + SELF_PLAY_ENERGIA)
         accion_label = f"entrenó {stat} solo"
 
     tapo_doc["Vitales"]     = vitales
@@ -178,13 +166,13 @@ def aplicar_degradacion(tapo_doc: dict, ticks: int) -> tuple[dict, list[str]]:
         if estadistica.get("vida", 0) <= 0:
             break
 
-        # 1. Degradar vitales
+        # 1. Degradar vitales (la energía se recupera en modo idle al estar descansando)
         vitales["hambre"]    = _clamp(vitales.get("hambre",    100) + TICK_HAMBRE)
-        vitales["energia"]   = _clamp(vitales.get("energia",   100) + TICK_ENERGIA)
+        vitales["energia"]   = _clamp(vitales.get("energia",   100) + abs(TICK_ENERGIA))
         vitales["felicidad"] = _clamp(vitales.get("felicidad", 100) + TICK_FELICIDAD)
 
-        # 2. Salud cae si hambre o energía llegan a 0
-        if vitales["hambre"] == 0 or vitales["energia"] == 0:
+        # 2. Salud cae si hambre llega a 0
+        if vitales["hambre"] == 0:
             vitales["salud"] = _clamp(vitales.get("salud", 100) + TICK_SALUD_BASE)
 
         # 3. Vida cae si salud llega a 0

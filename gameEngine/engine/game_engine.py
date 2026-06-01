@@ -166,7 +166,7 @@ def aplicar_idle(tapo: Tapo) -> list[str]:
         msgs = _aplicar_delta(
             tapo,
             hambre    = TICK_HAMBRE,
-            energia   = TICK_ENERGIA,
+            energia   = abs(TICK_ENERGIA),
             felicidad = TICK_FELICIDAD,
         )
 
