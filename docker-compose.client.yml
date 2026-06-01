@@ -89,6 +89,8 @@ services:
       # Host port advertised to the challenger (matches the ports: mapping above).
       P2P_HOST_PORT: ${P2P_PORT:-55201}
       DISPLAY: ${DISPLAY}
+      SDL_AUDIODRIVER: dummy
+      
 
 networks:
   tapomon-client-net:

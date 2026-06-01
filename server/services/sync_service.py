@@ -126,9 +126,23 @@ def verificar_propietario(usuario_id: str, tapo_id: str) -> bool:
     """
     Verifica que el tapo_id pertenece al usuario_id.
     Previene que un usuario suba el estado de una mascota ajena.
+    Si el tapo_id no pertenece a nadie, se asume que el usuario
+    está reemplazando a un Tapo muerto y se actualiza su Tapo_ID.
     """
     db = get_db()
     usuario_doc = db[COL_USUARIOS].find_one({"Id": usuario_id})
     if usuario_doc is None:
         return False
-    return usuario_doc.get("Tapo_ID") == tapo_id
+        
+    current_tapo_id = usuario_doc.get("Tapo_ID")
+    if current_tapo_id == tapo_id:
+        return True
+        
+    # Verificar si alguien más ya es dueño de este Tapo
+    otro_dueno = db[COL_USUARIOS].find_one({"Tapo_ID": tapo_id, "Id": {"$ne": usuario_id}})
+    if otro_dueno is not None:
+        return False
+        
+    # Si nadie más lo tiene, es un Tapo nuevo para este usuario (reemplazo)
+    db[COL_USUARIOS].update_one({"Id": usuario_id}, {"$set": {"Tapo_ID": tapo_id}})
+    return True

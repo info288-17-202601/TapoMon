@@ -12,6 +12,7 @@ echo "🎮 Levantando entorno para: $PLAYER..."
 
 # 1. Aseguramos que la imagen base esté construida con el código más reciente
 docker compose -f docker-compose.client.yml build gameengine
+
 xhost +local:docker > /dev/null 2>&1
 # 2. Aseguramos que la base de datos local de este jugador esté corriendo en background
 docker compose -f docker-compose.client.yml -p "$PLAYER" up -d mongodb-local
