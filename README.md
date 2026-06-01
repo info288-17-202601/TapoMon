@@ -87,7 +87,7 @@ A continuación se detalla la especificación para levantar tanto la infraestruc
 
 ```bash
 # Clonar el repositorio
-git clone <url-del-repo>
+git clone https://github.com/info288-17-202601/TapoMon.git
 cd TapoMon
 
 # Levantar el servidor central y su base de datos
@@ -121,23 +121,23 @@ Esto garantiza que cada jugador tenga su propia base de datos local aislada.
 # Construir la imagen del cliente (solo la primera vez o tras cambios)
 docker compose -f docker-compose.client.yml build
 
-# Ejecuta el script interactivo (reemplace "alice" con su nombre)
-./play.sh alice
+# Ejecuta el script interactivo (reemplace "ben" con su nombre)
+./play.sh ben
 ```
 
 > **Si el servidor se ejecuta en otra máquina**, indique su dirección antes de correr el script:
 > ```bash
-> TAPOMON_SERVER_URL=http://192.168.1.10:8000 ./play.sh alice
+> TAPOMON_SERVER_URL=http://192.168.1.10:8000 ./play.sh ben
 > ```
 
 ### Parar y eliminar el cliente
 
 ```bash
 # Parar el cliente (los datos se conservan)
-docker compose -f docker-compose.client.yml -p alice down
+docker compose -f docker-compose.client.yml -p ben down
 
 # Parar el cliente Y BORRAR todos los datos guardados (save data)
-docker compose -f docker-compose.client.yml -p alice down -v
+docker compose -f docker-compose.client.yml -p ben down -v
 ```
 
 ---
@@ -165,8 +165,7 @@ Comparta estos datos con su rival para que se conecte.
 > **Importante:** Para que el juego muestre su IP real de red (y no la IP interna del contenedor),
 > pase su IP al levantar el cliente:
 > ```bash
-> P2P_HOST_IP=192.168.1.50 \
->   docker compose -f docker-compose.client.yml -p alice up
+> P2P_HOST_IP=192.168.1.50 ./play.sh ben
 > ```
 > Puede encontrar su IP utilizando el comando `ip addr` o `hostname -I`.
 
@@ -192,10 +191,10 @@ para el combate P2P y nombres de proyecto distintos:
 
 ```bash
 # Jugador A — usa el puerto por defecto
-P2P_HOST_IP=host.docker.internal P2P_PORT=55201 ./play.sh alice
+P2P_HOST_IP=host.docker.internal P2P_PORT=55201 ./play.sh renton
 
 # Jugador B — usa un puerto diferente (en otra terminal)
-P2P_HOST_IP=host.docker.internal P2P_PORT=55202 ./play.sh bob
+P2P_HOST_IP=host.docker.internal P2P_PORT=55202 ./play.sh pascal
 ```
 
 Cuando B rete a A, introducirá `host.docker.internal:55201` como IP y puerto.
