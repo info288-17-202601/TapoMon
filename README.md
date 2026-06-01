@@ -8,11 +8,12 @@
 
 - [Arquitectura](#arquitectura)
 - [Requisitos](#requisitos)
-- [Inicio rápido — Servidor](#inicio-rápido--servidor)
-- [Inicio rápido — Cliente](#inicio-rápido--cliente)
+- [Especificación de Despliegue](#especificación-de-despliegue)
+  - [Despliegue del Servidor](#despliegue-del-servidor)
+  - [Despliegue del Cliente](#despliegue-del-cliente)
+  - [Variables de entorno](#variables-de-entorno)
 - [Combate P2P](#combate-p2p)
 - [Varios jugadores en la misma máquina](#varios-jugadores-en-la-misma-máquina)
-- [Variables de entorno](#variables-de-entorno)
 - [Desarrollo sin Docker](#desarrollo-sin-docker)
 - [Tests](#tests)
 - [Mecánica de Independencia](#mecánica-de-independencia)
@@ -78,7 +79,11 @@ en ubuntu(WSL2):
     ```
 ---
 
-## Inicio rápido — Servidor
+## Especificación de Despliegue
+
+A continuación se detalla la especificación para levantar tanto la infraestructura central como los clientes de los jugadores usando contenedores, además del detalle de sus variables de entorno.
+
+### Despliegue del Servidor
 
 ```bash
 # Clonar el repositorio
@@ -107,7 +112,7 @@ La documentación interactiva de la API está en `http://localhost:8000/docs`.
 
 ---
 
-## Inicio rápido — Cliente
+### Despliegue del Cliente
 
 Cada jugador ejecuta **su propio stack** usando un nombre de proyecto único (`-p`).
 Esto garantiza que cada jugador tenga su propia base de datos local aislada.
@@ -116,11 +121,11 @@ Esto garantiza que cada jugador tenga su propia base de datos local aislada.
 # Construir la imagen del cliente (solo la primera vez o tras cambios)
 docker compose -f docker-compose.client.yml build
 
-# Ejecuta el script interactivo (reemplaza "alice" con tu nombre)
+# Ejecuta el script interactivo (reemplace "alice" con su nombre)
 ./play.sh alice
 ```
 
-> **Si el servidor corre en otra máquina**, indica su dirección antes de correr el script:
+> **Si el servidor se ejecuta en otra máquina**, indique su dirección antes de correr el script:
 > ```bash
 > TAPOMON_SERVER_URL=http://192.168.1.10:8000 ./play.sh alice
 > ```
@@ -144,7 +149,7 @@ Todo ocurre desde el menú del juego sin reiniciar nada.
 
 ### Paso 1 — El jugador HOST
 
-El jugador que quiere **recibir** el reto selecciona en el menú:
+El jugador que desea **recibir** el reto selecciona en el menú:
 ```
 ⚔️  COMBATE P2P → 1. Ser HOST
 ```
@@ -154,20 +159,20 @@ El juego mostrará:
 📡 Tu IP:    192.168.1.50
 🔌 Puerto:   55201
 
-Comparte estos datos con tu rival para que se conecte.
+Comparta estos datos con su rival para que se conecte.
 ```
 
-> **Importante:** Para que el juego muestre tu IP real de red (y no la IP interna del contenedor),
-> pasa tu IP al levantar el cliente:
+> **Importante:** Para que el juego muestre su IP real de red (y no la IP interna del contenedor),
+> pase su IP al levantar el cliente:
 > ```bash
 > P2P_HOST_IP=192.168.1.50 \
 >   docker compose -f docker-compose.client.yml -p alice up
 > ```
-> Puedes encontrar tu IP con `ip addr` o `hostname -I`.
+> Puede encontrar su IP utilizando el comando `ip addr` o `hostname -I`.
 
 ### Paso 2 — El jugador CHALLENGER
 
-El jugador que quiere **retar** selecciona en el menú:
+El jugador que desea **retar** selecciona en el menú:
 ```
 ⚔️  COMBATE P2P → 2. Unirse
 ```
@@ -197,7 +202,7 @@ Cuando B rete a A, introducirá `host.docker.internal:55201` como IP y puerto.
 
 ---
 
-## Variables de entorno
+### Variables de entorno
 
 ### Servidor (`docker-compose.yml`)
 
@@ -226,7 +231,7 @@ Cuando B rete a A, introducirá `host.docker.internal:55201` como IP y puerto.
 
 ## Desarrollo sin Docker
 
-Si querés ejecutar el proyecto directamente en tu máquina (sin contenedores):
+Si desea ejecutar el proyecto directamente en su máquina (sin contenedores):
 
 ### Servidor
 
@@ -240,7 +245,7 @@ source server/.venv/bin/activate
 # Instalar dependencias
 pip install -r server/requirements.txt
 
-# Asegurarte de que MongoDB esté corriendo
+# Asegurarse de que MongoDB esté ejecutándose
 sudo systemctl start mongod
 
 # Levantar el servidor
