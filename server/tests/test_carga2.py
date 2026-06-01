@@ -13,16 +13,24 @@ import urllib.request
 import os
 
 
-
 def fetch(url: str, idx: int) -> None:
     full_url = f"{url}?{urllib.parse.urlencode({'client_id': idx})}"
     try:
         with urllib.request.urlopen(full_url, timeout=10) as response:
             body = response.read().decode('utf-8')
             payload = json.loads(body)
+            
+            # EXPLICACIÓN DEL CAMBIO:
+            # payload.get('cpu') obtiene la CPU del servidor (si el endpoint la envía).
+            # os.sched_getcpu() obtiene la CPU local de tu máquina CachyOS.
+            server_pid = payload.get('pid')
+            server_cpu = payload.get('cpu')  
+            path = payload.get('path')
+            client_id = payload.get('client_id')
+
             print(
-                f"[{idx:03d}] status={response.status} pid={payload.get('pid')} "
-                f"cpu={os.sched_getcpu()} path={payload.get('path')} client_id={payload.get('client_id')}"
+                f"[{idx:03d}] status={response.status} pid={server_pid} "
+                f"server_cpu={server_cpu} path={path} client_id={client_id}"
             )
     except urllib.error.HTTPError as exc:
         print(f"[{idx:03d}] HTTP ERROR {exc.code}: {exc.reason}")
