@@ -3,3 +3,5 @@
 *.pyc
 server/mongo_data/
 .pytest_cache/
+.env
+*/.env
