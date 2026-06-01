@@ -1,4 +1,5 @@
 .venv/
+venv/
 */__pycache__
 *.pyc
 server/mongo_data/

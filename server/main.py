@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import sys
 import os
+
 # Agregar el directorio padre al PATH de python para poder resolver 'server' de forma absoluta
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from fastapi.responses import HTMLResponse
@@ -31,7 +32,7 @@ from server.api.auth_routes import router as auth_router
 from server.api.dashboard_routes import router as dashboard_router
 from server.db.mongo import get_db, cerrar_conexion, crear_indices
 from server.services.idle_engine import ejecutar_idle_tick
-from server.config import SERVER_HOST, SERVER_PORT, IDLE_TICK_INTERVAL_SECONDS
+from server.config import SERVER_HOST, SERVER_PORT, IDLE_TICK_INTERVAL_SECONDS, SERVER_WORKER_COUNT
 
 
 def safe_print(emoji_text: str, fallback_text: str) -> None:
@@ -40,6 +41,25 @@ def safe_print(emoji_text: str, fallback_text: str) -> None:
         print(emoji_text)
     except UnicodeEncodeError:
         print(fallback_text)
+
+
+def get_current_cpu() -> int | None:
+    """Devuelve el CPU actual en Linux o None si no está disponible."""
+    try:
+        return os.sched_getcpu()
+    except AttributeError:
+        pass
+
+    if sys.platform.startswith("linux"):
+        try:
+            with open("/proc/self/stat", "r", encoding="utf-8") as f:
+                parts = f.read().split()
+            if len(parts) > 38:
+                return int(parts[38])
+        except Exception:
+            pass
+
+    return None
 
 
 # ------------------------------------------------------------------ #
@@ -125,6 +145,27 @@ async def health_check():
     }
 
 
+@app.get("/debug/worker-info", tags=["Debug"])
+async def worker_info(request: Request, client_id: str | None = None):
+    """Devuelve el PID del worker y el núcleo actual que atiende la petición."""
+    pid = os.getpid()
+    cpu = get_current_cpu()
+
+    response = {
+        "pid": pid,
+        "cpu": cpu,
+        "path": request.url.path,
+        "method": request.method,
+        "client_id": client_id,
+    }
+
+    safe_print(
+        f"📌 Petición {request.method} {request.url.path} -> pid={pid} cpu={cpu} client_id={client_id}",
+        f"[REQ] {request.method} {request.url.path} -> pid={pid} cpu={cpu} client_id={client_id}",
+    )
+    return response
+
+
 # ------------------------------------------------------------------ #
 #  Ejecución directa
 # ------------------------------------------------------------------ #
@@ -134,5 +175,6 @@ if __name__ == "__main__":
         "server.main:app",
         host=SERVER_HOST,
         port=SERVER_PORT,
-        reload=True,
+        workers=SERVER_WORKER_COUNT,
+        reload=False,
     )
