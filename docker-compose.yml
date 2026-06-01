@@ -43,14 +43,8 @@ services:
       - "8000:8000"          # Clients (and players) reach the server here
     networks:
       - tapomon-server-net
-    environment:
-      MONGO_URI: mongodb://mongodb:27017
-      MONGO_DB: Tapomon
-      SERVER_HOST: 0.0.0.0
-      SERVER_PORT: "8000"
-      JWT_SECRET: "tapomon-dev-secret-change-in-prod"  # override in prod!
-      JWT_EXPIRATION_HOURS: "24"
-      IDLE_TICK_INTERVAL: "60"
+    env_file:
+      - ./server/.env
 
 networks:
   tapomon-server-net:
