@@ -64,19 +64,29 @@
 
 No se necesita Python, MongoDB ni ninguna dependencia instalada localmente.
 
-Caso de usar windows hay que usar wsl2 y tener la wsl integration activada en docker desktop además de seguir los siguientes comandos:
+> En caso de usar windows hay que usar wsl2 y tener la wsl integration activada en docker desktop además de seguir los siguientes comandos:
+>
+> En powershell:
+>
+>```bash
+>wsl --set-default-version 2
+>wsl --set-version Ubuntu 2   
+>wsl --update
+>```
+>En ubuntu(WSL2):
+>
+>```bash
+>sudo apt update
+>sudo apt install x11-xserver-utils
+>```
 
-en powershell:
-    ```
-    wsl --set-default-version 2
-    wsl --set-version Ubuntu 2   
-    wsl --update
-    ```
-en ubuntu(WSL2):
-    ```
-    sudo apt update
-    sudo apt install x11-xserver-utils
-    ```
+> En caso de usar linux no es necesario hacer nada de lo anterior, pero puede ser necesario instalar xorg-xhost en caso de intentar ejecutar en un entorno que no sea x11 (Por ejemplo wayland o hyprland).
+>
+> En arch linux:
+> ```bash
+> sudo pacman -S xorg-xhost
+> ```
+
 ---
 
 ## Especificación de Despliegue
