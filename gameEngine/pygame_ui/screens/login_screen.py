@@ -132,7 +132,7 @@ class LoginScreen(Screen):
             return
         try:
             import uuid
-            from models.tapo import TipoTapo, Vitales, Estadistica
+            from models.tapo import TipoTapo, Vitales, Estadistica, Tapo        
             from models.usuario import Usuario
 
             usuario_id = str(uuid.uuid4())
