@@ -16,6 +16,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from server.services.sync_service import (
+    normalizar_friend_list,
     sync_upload,
     resume_state,
     verificar_propietario,
@@ -24,6 +25,21 @@ from server.config import COL_MASCOTAS, COL_INBOX
 from server.tests.conftest import (
     TEST_USER_ID, TEST_TAPO_ID, TEST_TAPO_DOC, requires_mongo,
 )
+
+
+class TestFriendListNormalization:
+    """Prueba que la lista de amigos del Tapo se normalice a una lista de ids válida."""
+
+    def test_normaliza_lista_vacia_y_nombres_validos(self):
+        assert normalizar_friend_list(None) == []
+        assert normalizar_friend_list([]) == []
+        assert normalizar_friend_list(["tapo-1", "tapo-2"]) == ["tapo-1", "tapo-2"]
+
+    def test_elimina_duplicados_y_valores_vacios(self):
+        assert normalizar_friend_list(["tapo-1", "", "tapo-1", None, "tapo-2"]) == ["tapo-1", "tapo-2"]
+
+    def test_convierte_un_valor_simple_en_lista(self):
+        assert normalizar_friend_list("tapo-3") == ["tapo-3"]
 
 
 @requires_mongo

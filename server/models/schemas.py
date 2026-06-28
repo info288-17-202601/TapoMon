@@ -58,8 +58,8 @@ class TapoStateUpload(BaseModel):
     Estadistica:    EstadisticaSchema
     Estado_Sistema: bool = False          # Al subir, siempre será IDLE
     Last_Sync:      str                   # ISO format timestamp
-    Friend_List:    list[str] = []
-    Gift_Cooldowns: list[GiftCooldownSchema] = []
+    Friend_List:    list[str] = Field(default_factory=list)
+    Gift_Cooldowns: list[GiftCooldownSchema] = Field(default_factory=list)
 
 
 class LoginRequest(BaseModel):
@@ -94,6 +94,41 @@ class SyncUploadResponse(BaseModel):
     tapo_id: str
 
 
+class SocialFriendInfo(BaseModel):
+    """Información resumida de un amigo del Tapo."""
+    friend_id: str
+    username: Optional[str] = None
+    tapo_id: Optional[str] = None
+    tapo_name: Optional[str] = None
+
+
+class SocialStateResponse(BaseModel):
+    """Respuesta con la vista social del Tapo."""
+    success: bool
+    message: str
+    friends: list[SocialFriendInfo] = Field(default_factory=list)
+    gift_cooldowns: list[GiftCooldownSchema] = Field(default_factory=list)
+
+
+class SocialFriendRequest(BaseModel):
+    """Payload para agregar o quitar un amigo."""
+    friend_id: str
+
+
+class SocialGiftRequest(BaseModel):
+    """Payload para enviar un regalo a un amigo."""
+    friend_id: str
+    gift_type: str = "comida"
+    message: Optional[str] = None
+
+
+class SocialGiftResponse(BaseModel):
+    """Respuesta al envío de un regalo."""
+    success: bool
+    message: str
+    gift_id: Optional[str] = None
+
+
 class InboxMessage(BaseModel):
     """Mensaje individual del Inbox."""
     ID_Mensaje:   str
@@ -111,7 +146,7 @@ class ResumeStateResponse(BaseModel):
     success:  bool
     message:  str
     tapo:     Optional[dict] = None       # Estado completo del Tapo
-    inbox:    list[InboxMessage] = []      # Mensajes pendientes
+    inbox:    list[InboxMessage] = Field(default_factory=list)      # Mensajes pendientes
 
 
 class TokenResponse(BaseModel):

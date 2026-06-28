@@ -7,6 +7,7 @@ Las colecciones reflejan exactamente el esquema del informe:
   - inbox      → Tabla Inbox
 """
 from __future__ import annotations
+import re
 import uuid
 from datetime import datetime
 
@@ -77,6 +78,45 @@ def cargar_tapo(tapo_id: str) -> Tapo | None:
     if isinstance(doc.get("Last_Sync"), datetime):
         doc["Last_Sync"] = doc["Last_Sync"].isoformat()
     return Tapo.from_dict(doc)
+
+
+def buscar_tapos_por_texto(texto: str) -> list[dict]:
+    """Busca mascotas por nombre o por username del propietario."""
+    query = str(texto or "").strip()
+    if not query:
+        return []
+
+    pattern = {"$regex": re.escape(query), "$options": "i"}
+    matches: list[dict] = []
+    seen_ids: set[str] = set()
+
+    for tapo_doc in _col(COL_MASCOTAS).find({"Nombre": pattern}):
+        tapo_id = tapo_doc.get("id_mascota")
+        if not tapo_id or tapo_id in seen_ids:
+            continue
+        seen_ids.add(tapo_id)
+        usuario_doc = _col(COL_USUARIOS).find_one({"Tapo_ID": tapo_id})
+        matches.append({
+            "id_mascota": tapo_id,
+            "nombre": tapo_doc.get("Nombre"),
+            "username": usuario_doc.get("Username") if usuario_doc else None,
+        })
+
+    for usuario_doc in _col(COL_USUARIOS).find({"Username": pattern}):
+        tapo_id = usuario_doc.get("Tapo_ID")
+        if not tapo_id or tapo_id in seen_ids:
+            continue
+        seen_ids.add(tapo_id)
+        tapo_doc = _col(COL_MASCOTAS).find_one({"id_mascota": tapo_id})
+        if tapo_doc is None:
+            continue
+        matches.append({
+            "id_mascota": tapo_id,
+            "nombre": tapo_doc.get("Nombre"),
+            "username": usuario_doc.get("Username"),
+        })
+
+    return matches
 
 
 # ================================================================== #

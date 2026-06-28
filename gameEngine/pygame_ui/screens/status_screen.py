@@ -77,6 +77,7 @@ class StatusScreen(Screen):
             ("Defensa",       self._accion_defensa),
             ("Velocidad",      self._accion_velocidad),
             ("Resistencia",    self._accion_resistencia),
+            ("Social",         self._accion_social),
             ("Batalla P2P",   self._accion_batalla),
         ]
         self.action_btns: list[Button] = []
@@ -156,6 +157,12 @@ class StatusScreen(Screen):
     def _accion_velocidad(self):  self._run_action(self.ge.entrenar_velocidad, "attack")
     def _accion_resistencia(self):self._run_action(self.ge.entrenar_resistencia, "attack")
  
+    def _accion_social(self):
+        from pygame_ui.screens.social_screen import SocialScreen
+        self.manager.push(
+            SocialScreen(self.manager, self.usuario, self.tapo, self.sync_client, self.local_db)
+        )
+
     def _accion_batalla(self):
         from pygame_ui.screens.battle_screen import BattleMenuScreen
         self.manager.push(BattleMenuScreen(self.manager, self.tapo))

@@ -24,6 +24,39 @@ from server.db.mongo import get_db
 from server.config import COL_MASCOTAS, COL_USUARIOS, COL_INBOX
 
 
+def normalizar_friend_list(friend_list: object | None) -> list[str]:
+    """Convierte la Friend_List del Tapo a una lista limpia de IDs de amigos."""
+    if friend_list is None:
+        return []
+
+    if isinstance(friend_list, str):
+        values = [friend_list]
+    elif isinstance(friend_list, (list, tuple, set)):
+        values = list(friend_list)
+    else:
+        values = [friend_list]
+
+    friends: list[str] = []
+    seen: set[str] = set()
+
+    for item in values:
+        if item is None:
+            continue
+
+        if isinstance(item, str):
+            candidate = item.strip()
+        else:
+            candidate = str(item).strip()
+
+        if not candidate or candidate in seen:
+            continue
+
+        seen.add(candidate)
+        friends.append(candidate)
+
+    return friends
+
+
 def sync_upload(tapo_id: str, tapo_state: dict) -> bool:
     """
     Recibe el "Snapshot" del cliente y lo guarda en el Pet State Store.
@@ -43,13 +76,17 @@ def sync_upload(tapo_id: str, tapo_state: dict) -> bool:
     """
     db = get_db()
 
-    # Asegurar que el estado se marca como IDLE al subir
-    tapo_state["Estado_Sistema"] = False
-    tapo_state["Last_Sync"] = datetime.now().isoformat()
+    state_to_store = dict(tapo_state)
+
+    # Asegurar que el estado se marca como IDLE al subir y que la lista de amigos
+    # se guarde como una lista limpia de IDs.
+    state_to_store["Estado_Sistema"] = False
+    state_to_store["Last_Sync"] = datetime.now().isoformat()
+    state_to_store["Friend_List"] = normalizar_friend_list(state_to_store.get("Friend_List"))
 
     result = db[COL_MASCOTAS].update_one(
         {"id_mascota": tapo_id},
-        {"$set": tapo_state},
+        {"$set": state_to_store},
         upsert=True,
     )
 
@@ -89,6 +126,8 @@ def resume_state(usuario_id: str) -> dict | None:
     tapo_doc = db[COL_MASCOTAS].find_one({"id_mascota": tapo_id})
     if tapo_doc is None:
         return None
+
+    tapo_doc["Friend_List"] = normalizar_friend_list(tapo_doc.get("Friend_List"))
 
     # Marcar como ACTIVE al descargar
     db[COL_MASCOTAS].update_one(

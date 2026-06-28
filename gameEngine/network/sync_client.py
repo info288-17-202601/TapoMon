@@ -206,6 +206,88 @@ class SyncClient:
             print(f"  ⚠️  Error al recuperar estado: {e}")
             return None
 
+    def get_social_state(self) -> dict | None:
+        """Obtiene la vista social del Tapo autenticado."""
+        if not self._token:
+            return None
+        try:
+            resp = requests.get(
+                f"{self.base_url}/social/friends",
+                headers=self._headers,
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+        except requests.ConnectionError:
+            print("  ⚠️  Servidor no disponible. No se pudo cargar el estado social.")
+            return None
+        except Exception as e:
+            print(f"  ⚠️  Error al cargar estado social: {e}")
+            return None
+
+    def add_friend(self, friend_id: str) -> dict | None:
+        """Agrega un amigo al Tapo autenticado."""
+        if not self._token:
+            return None
+        try:
+            resp = requests.post(
+                f"{self.base_url}/social/friends",
+                json={"friend_id": friend_id},
+                headers=self._headers,
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+        except requests.ConnectionError:
+            print("  ⚠️  Servidor no disponible. No se pudo agregar el amigo.")
+            return None
+        except Exception as e:
+            print(f"  ⚠️  Error al agregar amigo: {e}")
+            return None
+
+    def remove_friend(self, friend_id: str) -> dict | None:
+        """Quita un amigo del Tapo autenticado."""
+        if not self._token:
+            return None
+        try:
+            resp = requests.delete(
+                f"{self.base_url}/social/friends/{friend_id}",
+                headers=self._headers,
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+        except requests.ConnectionError:
+            print("  ⚠️  Servidor no disponible. No se pudo quitar el amigo.")
+            return None
+        except Exception as e:
+            print(f"  ⚠️  Error al quitar amigo: {e}")
+            return None
+
+    def send_gift(self, friend_id: str, gift_type: str = "comida") -> dict | None:
+        """Envía un regalo a un amigo del Tapo autenticado."""
+        if not self._token:
+            return None
+        try:
+            resp = requests.post(
+                f"{self.base_url}/social/gift",
+                json={"friend_id": friend_id, "gift_type": gift_type},
+                headers=self._headers,
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+        except requests.ConnectionError:
+            print("  ⚠️  Servidor no disponible. No se pudo enviar el regalo.")
+            return None
+        except Exception as e:
+            print(f"  ⚠️  Error al enviar regalo: {e}")
+            return None
+
     def is_connected(self) -> bool:
         """Verifica si hay un token JWT activo."""
         return self._token is not None
