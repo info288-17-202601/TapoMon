@@ -31,9 +31,10 @@ from server.api.sync_routes import router as sync_router
 from server.api.auth_routes import router as auth_router
 from server.api.dashboard_routes import router as dashboard_router
 from server.api.social_routes import router as social_router
+from server.api.internal_routes import router as internal_router
 from server.db.mongo import get_db, cerrar_conexion, crear_indices
 from server.services.idle_engine import ejecutar_idle_tick
-from server.config import SERVER_HOST, SERVER_PORT, IDLE_TICK_INTERVAL_SECONDS, SERVER_WORKER_COUNT
+from server.config import SERVER_HOST, SERVER_PORT, IDLE_TICK_INTERVAL_SECONDS, SERVER_REGION
 
 
 def safe_print(emoji_text: str, fallback_text: str) -> None:
@@ -121,6 +122,7 @@ app.include_router(auth_router, prefix="/auth", tags=["Autenticación"])
 app.include_router(sync_router, prefix="/sync", tags=["SyncService"])
 app.include_router(social_router, prefix="/social", tags=["Social"])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(internal_router, prefix="/internal", tags=["Internal (Migración)"])
 
 
 @app.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])
@@ -144,6 +146,7 @@ async def health_check():
         "status": "ok",
         "service": "TapoMon Central Server",
         "version": "1.0.0",
+        "region": SERVER_REGION,
     }
 
 
@@ -177,6 +180,6 @@ if __name__ == "__main__":
         "server.main:app",
         host=SERVER_HOST,
         port=SERVER_PORT,
-        workers=SERVER_WORKER_COUNT,
+        workers=1,
         reload=False,
     )

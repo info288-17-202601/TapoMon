@@ -1,25 +1,116 @@
 # ──────────────────────────────────────────────────────
-#  docker-compose.yml  —  TapoMon SERVER STACK
+#  docker-compose.yml  —  TapoMon MULTI-SERVER STACK
 #
-#  Manages the central server and its MongoDB.
-#  Run once per deployment:
+#  Arquitectura de servidores regionales con Nginx como
+#  reverse proxy / load balancer.
 #
-#    docker compose up -d
-#    docker compose down
+#  Componentes:
+#    - Nginx:        Reverse proxy (puerto 8000)
+#    - Coordinador:  Asignación y migración de jugadores
+#    - 3 Servidores: Norte, Sur, Centro (cada uno con su MongoDB)
+#
+#  Uso:
+#    docker compose up -d            # Levantar todo
+#    docker compose down             # Apagar todo
+#    docker compose logs -f nginx    # Ver logs de Nginx
+#    docker compose logs -f server-norte  # Ver logs del servidor Norte
+#
+#  Los clientes siguen apuntando a http://localhost:8000
+#  (o la IP del host). Nginx se encarga de enrutar al servidor
+#  regional correcto según el header X-Server-Region.
 # ──────────────────────────────────────────────────────
 
 services:
 
-  # ── Central MongoDB (server-side Pet State Store) ──────────────────
-  mongodb:
-    image: mongo:7
-    container_name: tapomon-mongo
+  # ════════════════════════════════════════════════════
+  #  NGINX — Reverse Proxy / Load Balancer
+  # ════════════════════════════════════════════════════
+  nginx:
+    build: ./nginx
+    container_name: tapomon-nginx
     restart: unless-stopped
-    volumes:
-      - mongo_server_data:/data/db
+    ports:
+      - "8000:80"          # Los clientes siguen usando puerto 8000
+    depends_on:
+      - coordinator
+      - server-norte
+      - server-sur
+      - server-centro
     networks:
       - tapomon-server-net
-    # NOT exposed to host — clients talk to the server via HTTP, not directly
+
+  # ════════════════════════════════════════════════════
+  #  COORDINADOR CENTRAL
+  # ════════════════════════════════════════════════════
+  coordinator:
+    build:
+      context: ./server
+      dockerfile: coordinator/Dockerfile
+    container_name: tapomon-coordinator
+    restart: unless-stopped
+    depends_on:
+      mongodb-coordinator:
+        condition: service_healthy
+    environment:
+      COORDINATOR_MONGO_URI: mongodb://mongodb-coordinator:27017
+      COORDINATOR_MONGO_DB: TapomonCoordinator
+      COORDINATOR_PORT: "8080"
+      REGIONAL_SERVERS_JSON: >
+        {
+          "norte":  "http://server-norte:8000",
+          "sur":    "http://server-sur:8000",
+          "centro": "http://server-centro:8000"
+        }
+      MIGRATION_COOLDOWN_HOURS: "24"
+    networks:
+      - tapomon-server-net
+
+  mongodb-coordinator:
+    image: mongo:7
+    container_name: tapomon-mongo-coordinator
+    restart: unless-stopped
+    volumes:
+      - mongo_coordinator_data:/data/db
+    networks:
+      - tapomon-server-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ════════════════════════════════════════════════════
+  #  SERVIDOR REGIONAL: NORTE
+  # ════════════════════════════════════════════════════
+  server-norte:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: tapomon-server-norte
+    restart: unless-stopped
+    depends_on:
+      mongodb-norte:
+        condition: service_healthy
+    environment:
+      SERVER_REGION: norte
+      MONGO_URI: mongodb://mongodb-norte:27017
+      MONGO_DB: Tapomon
+      SERVER_PORT: "8000"
+      JWT_SECRET: tapomon-dev-secret-change-in-prod
+      JWT_EXPIRATION_HOURS: "24"
+      IDLE_TICK_INTERVAL: "60"
+    networks:
+      - tapomon-server-net
+
+  mongodb-norte:
+    image: mongo:7
+    container_name: tapomon-mongo-norte
+    restart: unless-stopped
+    volumes:
+      - mongo_norte_data:/data/db
+    networks:
+      - tapomon-server-net
     environment:
       MONGO_INITDB_DATABASE: Tapomon
     healthcheck:
@@ -29,27 +120,99 @@ services:
       retries: 5
       start_period: 10s
 
-  # ── Central Server (FastAPI + APScheduler) ─────────────────────────
-  server:
+  # ════════════════════════════════════════════════════
+  #  SERVIDOR REGIONAL: SUR
+  # ════════════════════════════════════════════════════
+  server-sur:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: tapomon-server
+    container_name: tapomon-server-sur
     restart: unless-stopped
     depends_on:
-      mongodb:
+      mongodb-sur:
         condition: service_healthy
-    ports:
-      - "8000:8000"          # Clients (and players) reach the server here
+    environment:
+      SERVER_REGION: sur
+      MONGO_URI: mongodb://mongodb-sur:27017
+      MONGO_DB: Tapomon
+      SERVER_PORT: "8000"
+      JWT_SECRET: tapomon-dev-secret-change-in-prod
+      JWT_EXPIRATION_HOURS: "24"
+      IDLE_TICK_INTERVAL: "60"
     networks:
       - tapomon-server-net
-    env_file:
-      - ./server/.env
 
+  mongodb-sur:
+    image: mongo:7
+    container_name: tapomon-mongo-sur
+    restart: unless-stopped
+    volumes:
+      - mongo_sur_data:/data/db
+    networks:
+      - tapomon-server-net
+    environment:
+      MONGO_INITDB_DATABASE: Tapomon
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ════════════════════════════════════════════════════
+  #  SERVIDOR REGIONAL: CENTRO
+  # ════════════════════════════════════════════════════
+  server-centro:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: tapomon-server-centro
+    restart: unless-stopped
+    depends_on:
+      mongodb-centro:
+        condition: service_healthy
+    environment:
+      SERVER_REGION: centro
+      MONGO_URI: mongodb://mongodb-centro:27017
+      MONGO_DB: Tapomon
+      SERVER_PORT: "8000"
+      JWT_SECRET: tapomon-dev-secret-change-in-prod
+      JWT_EXPIRATION_HOURS: "24"
+      IDLE_TICK_INTERVAL: "60"
+    networks:
+      - tapomon-server-net
+
+  mongodb-centro:
+    image: mongo:7
+    container_name: tapomon-mongo-centro
+    restart: unless-stopped
+    volumes:
+      - mongo_centro_data:/data/db
+    networks:
+      - tapomon-server-net
+    environment:
+      MONGO_INITDB_DATABASE: Tapomon
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+# ════════════════════════════════════════════════════
+#  RED Y VOLÚMENES
+# ════════════════════════════════════════════════════
 networks:
   tapomon-server-net:
     driver: bridge
 
 volumes:
-  mongo_server_data:
-    name: tapomon-server-mongo
+  mongo_coordinator_data:
+    name: tapomon-mongo-coordinator
+  mongo_norte_data:
+    name: tapomon-mongo-norte
+  mongo_sur_data:
+    name: tapomon-mongo-sur
+  mongo_centro_data:
+    name: tapomon-mongo-centro

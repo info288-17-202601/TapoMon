@@ -61,13 +61,25 @@ class LoginScreen(Screen):
         for i, t in enumerate(self._tipos):
             x = panel_x + i * (tipo_w + 4)
             self._tipo_btns.append(
-                Button(x, 456, tipo_w, 30, text=t[:3],
+                Button(x, 444, tipo_w, 24, text=t[:3],
                        callback=lambda tt=t: setattr(self, "_tipo_sel", tt),
                        accent_color=TYPE_COLORS.get(t, C_ACCENT))
             )
  
+        self._regiones = ["Auto", "norte", "sur", "centro"]
+        self._region_sel = "Auto"
+        self._region_btns = []
+        reg_w = panel_w // len(self._regiones) - 4
+        for i, r in enumerate(self._regiones):
+            x = panel_x + i * (reg_w + 4)
+            self._region_btns.append(
+                Button(x, 474, reg_w, 24, text=r.capitalize(),
+                       callback=lambda rr=r: setattr(self, "_region_sel", rr),
+                       accent_color=C_ACCENT)
+            )
+
         self.btn_register = Button(
-            panel_x, 494, panel_w, BTN_H,
+            panel_x, 506, panel_w, BTN_H,
             text="Crear cuenta",
             callback=self._do_register,
             accent_color=C_ACCENT,
@@ -138,6 +150,8 @@ class LoginScreen(Screen):
             usuario_id = str(uuid.uuid4())
             tapo_id = str(uuid.uuid4())
 
+            target_region = self._region_sel if self._region_sel != "Auto" else None
+
             self._show_toast("Registrando en servidor central...", ok=True)
             auth_data = self.sync_client.register(
                 username=username,
@@ -145,6 +159,7 @@ class LoginScreen(Screen):
                 password=password,
                 usuario_id=usuario_id,
                 tapo_id=tapo_id,
+                target_region=target_region,
             )
 
             if not auth_data:
@@ -154,7 +169,14 @@ class LoginScreen(Screen):
             usuario = Usuario(id=usuario_id, username=username, correo=correo, tapo_id=tapo_id)
             usuario.set_password(password)
 
-            tipo_enum = TipoTapo(self._tipo_sel) if hasattr(TipoTapo, self._tipo_sel) else TipoTapo.NORMAL
+            
+            #tipo_enum = TipoTapo(self._tipo_sel) if hasattr(TipoTapo, self._tipo_sel) else TipoTapo.NORMAL
+            try:
+                tipo_enum = TipoTapo(self._tipo_sel)
+            except ValueError:
+                tipo_enum = TipoTapo.NORMAL
+            
+
             tapo = Tapo(
                 id_mascota=tapo_id,
                 nombre=nombre,
@@ -195,6 +217,8 @@ class LoginScreen(Screen):
                     self.tab_login_btn, self.tab_reg_btn]:
                 w.handle_event(event)
             for b in self._tipo_btns:
+                b.handle_event(event)
+            for b in self._region_btns:
                 b.handle_event(event)
  
     # ---------------------------------------------------------------- #
@@ -271,14 +295,18 @@ class LoginScreen(Screen):
         self.tf_reg_tapo.draw(surf, fonts["small"])
  
         # Selector de tipo
-        cx = SCREEN_W // 2
-        lbl = fonts["small"].render("Tipo de Tapo:", True, C_GRAY_LIGHT)
-        surf.blit(lbl, (cx - 180, 438))
         for i, (btn, t) in enumerate(zip(self._tipo_btns, self._tipos)):
             is_sel = t == self._tipo_sel
             if is_sel:
                 col = TYPE_COLORS.get(t, C_ACCENT)
                 draw_glowing_rect(surf, btn.rect, C_BG3, col, glow_width=2)
+            btn.draw(surf, fonts["small"])
+
+        # Selector de region
+        for i, (btn, r) in enumerate(zip(self._region_btns, self._regiones)):
+            is_sel = r == self._region_sel
+            if is_sel:
+                draw_glowing_rect(surf, btn.rect, C_BG3, C_ACCENT, glow_width=2)
             btn.draw(surf, fonts["small"])
  
         self.btn_register.draw(surf, fonts["label"])

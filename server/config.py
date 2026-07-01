@@ -31,7 +31,10 @@ MONGO_DB  = os.getenv("MONGO_DB",  "Tapomon")
 # ------------------------------------------------------------------ #
 SERVER_HOST = os.getenv("SERVER_HOST", "0.0.0.0")
 SERVER_PORT = int(os.getenv("SERVER_PORT", "8000"))
-SERVER_WORKER_COUNT = int(os.getenv("SERVER_WORKER_COUNT", "2"))  # Número de procesos worker para Uvicorn
+
+# Región de este servidor (usada para identificación en el sistema multi-servidor).
+# Cada instancia regional recibe un nombre único via variable de entorno.
+SERVER_REGION = os.getenv("SERVER_REGION", "default")
 
 # ------------------------------------------------------------------ #
 #  JWT
