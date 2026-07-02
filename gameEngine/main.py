@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from db import local_db
 from engine import game_engine as ge
 from ui import console_ui as ui
+from ui.console_ui import form_forgot_password
 from models.tapo import Tapo
 from network.sync_client import SyncClient
 from p2pEngine.battle_cli import menu_batalla
@@ -33,16 +34,29 @@ def flujo_login() -> tuple | None:
     """Retorna (usuario, tapo) o None si falla."""
     username, password = ui.form_login()
 
-    print("  ☁️  Autenticando con el servidor central...")
-    auth_data = sync_client.login(username, password)
-    
-    if not auth_data:
+    # Paso 1: validar credenciales → recibir challenge 2FA
+    print("  ☁️  Verificando credenciales...")
+    challenge = sync_client.login(username, password)
+
+    if not challenge:
         ui.mensaje_error("Credenciales incorrectas o el servidor no está disponible.")
         return None
-        
+
+    session_id  = challenge["session_id"]
+    correo_hint = challenge["correo_hint"]
+
+    # Paso 2: pedir el código al usuario y verificarlo
+    codigo = ui.form_2fa_code(correo_hint)
+    print("  ☁️  Verificando código 2FA...")
+    auth_data = sync_client.verify_2fa(session_id, codigo)
+
+    if not auth_data:
+        ui.mensaje_error("Código incorrecto o expirado. Vuelve a intentarlo.")
+        return None
+
     usuario_id = auth_data["usuario_id"]
-    correo = auth_data["correo"]
-    tapo_id = auth_data["tapo_id"]
+    correo     = auth_data["correo"]
+    tapo_id    = auth_data["tapo_id"]
 
     # Descargar estado actualizado desde el servidor
     server_state = sync_client.resume(usuario_id)
@@ -60,7 +74,7 @@ def flujo_login() -> tuple | None:
     local_db.guardar_usuario(usuario)
     local_db.guardar_tapo(tapo)
     local_db._crear_indices()
-    
+
     print("  ☁️  Perfil y estado sincronizados desde el servidor.")
     return usuario, tapo
 
@@ -227,6 +241,24 @@ def bucle_juego(usuario, tapo: Tapo) -> None:
             ui.mensaje_error("Opción no válida.")
 
 
+def flujo_forgot_password() -> None:
+    """Flujo de recuperación de contraseña por consola."""
+    correo = form_forgot_password()
+    if not correo:
+        ui.mensaje_error("Correo no ingresado.")
+        return
+
+    print("  ☁️  Enviando solicitud al servidor...")
+    ok = sync_client.forgot_password(correo)
+    if ok:
+        ui.mensaje_ok(
+            "Si el correo está registrado, recibirás un enlace de recuperación.\n"
+            "  Revisa tu bandeja de entrada (y la carpeta de spam)."
+        )
+    else:
+        ui.mensaje_error("No se pudo conectar con el servidor. Inténtalo más tarde.")
+
+
 # ------------------------------------------------------------------ #
 #  Menú principal
 # ------------------------------------------------------------------ #
@@ -246,6 +278,9 @@ def main() -> None:
             resultado = flujo_login()
         elif opcion == "2":
             resultado = flujo_registro()
+        elif opcion == "3":
+            flujo_forgot_password()
+            continue
         else:
             ui.mensaje_error("Opción no válida.")
             continue

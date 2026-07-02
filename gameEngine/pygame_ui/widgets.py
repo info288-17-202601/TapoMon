@@ -165,19 +165,44 @@ class TextField:
         self.active      = False
         self._cursor_t   = 0.0
         self._show_cursor= True
+        self._got_char   = False   # flag anti-doble-input
  
     def handle_event(self, event: pygame.event.Event) -> bool:
         if event.type == pygame.MOUSEBUTTONDOWN:
             self.active = self.rect.collidepoint(event.pos)
-        if self.active and event.type == pygame.KEYDOWN:
+            self._got_char = False
+
+        if not self.active:
+            return False
+
+        if event.type == pygame.KEYDOWN:
+            self._got_char = False          # reset al inicio de cada tecla
             if event.key == pygame.K_BACKSPACE:
                 self.text = self.text[:-1]
-            elif event.key not in (pygame.K_RETURN, pygame.K_TAB, pygame.K_ESCAPE):
-                if len(self.text) < 32:
+                return True
+            if event.key in (pygame.K_RETURN, pygame.K_TAB, pygame.K_ESCAPE):
+                return True
+            # event.unicode funciona para teclas normales (a-z, 0-9, etc.)
+            # pero AltGr+tecla devuelve unicode vacío en Windows — lo maneja TEXTINPUT
+            if event.unicode and event.unicode.isprintable():
+                if len(self.text) < 64:
                     self.text += event.unicode
+                self._got_char = True
             return True
+
+        if event.type == pygame.TEXTINPUT:
+            # Solo agregar si KEYDOWN no pudo capturar el caracter.
+            # Esto cubre AltGr+tecla (@, |, ~, etc.) que event.unicode no ve.
+            if not self._got_char:
+                for ch in event.text:
+                    if ch.isprintable() and len(self.text) < 64:
+                        self.text += ch
+            self._got_char = False
+            return True
+
         return False
  
+
     def update(self, dt: float) -> None:
         self._cursor_t += dt
         if self._cursor_t >= 0.5:

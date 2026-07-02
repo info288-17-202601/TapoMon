@@ -41,6 +41,7 @@ class App:
 
     def __init__(self):
         pygame.init()
+        pygame.key.start_text_input()   # activa TEXTINPUT para capturar AltGr+tecla (@, etc.)
         pygame.display.set_caption("TapoMon")
 
         # Intentar icono (ignorar si no existe)
@@ -127,8 +128,18 @@ class App:
         self.manager = ScreenManager()
         self.manager.fonts = self.fonts  # disponibles para todas las pantallas
 
-        from pygame_ui.screens.login_screen import LoginScreen
+        # Intentar restaurar sesión guardada (evita el login si el JWT sigue vigente)
+        session_data = self.sync_client.restore_session()
+        if session_data:
+            self._try_resume_session(session_data)
+            return  # _try_resume_session se encarga de empujar la pantalla correcta
 
+        # Sin sesión — mostrar login normal
+        self._push_login_screen()
+
+    def _push_login_screen(self):
+        """Empuja la pantalla de login al manager."""
+        from pygame_ui.screens.login_screen import LoginScreen
         login = LoginScreen(
             self.manager,
             local_db    = self.local_db,
@@ -136,6 +147,54 @@ class App:
             on_success  = self._on_login_success,
         )
         self.manager.push(login)
+
+    def _try_resume_session(self, session_data: dict):
+        """
+        Intenta recuperar el estado del servidor con la sesión guardada
+        y entra al juego directamente. Si falla, cae al login normal.
+        """
+        try:
+            # Mostrar mensaje de bienvenida en pantalla de carga
+            self.screen.fill((10, 8, 20))
+            font = pygame.font.SysFont("monospace", 15)
+            username = session_data.get("username", "")
+            msg = font.render(
+                f"Restaurando sesión de {username}...", True, (80, 140, 255)
+            )
+            self.screen.blit(msg, (SCREEN_W // 2 - msg.get_width() // 2, SCREEN_H // 2))
+            pygame.display.flip()
+
+            usuario_id = session_data["usuario_id"]
+            correo     = session_data["correo"]
+            tapo_id    = session_data["tapo_id"]
+
+            server_state = self.sync_client.resume(usuario_id)
+            if not server_state or not server_state.get("tapo"):
+                print("  ⚠️  No se pudo recuperar el estado del servidor. Volviendo al login.")
+                self._push_login_screen()
+                return
+
+            from models.usuario import Usuario
+            from models.tapo import Tapo
+
+            usuario = Usuario(
+                id=usuario_id,
+                username=username,
+                correo=correo,
+                tapo_id=tapo_id,
+            )
+
+            tapo = Tapo.from_dict(server_state["tapo"])
+            self.local_db.guardar_usuario(usuario)
+            self.local_db.guardar_tapo(tapo)
+            self.local_db._crear_indices()
+
+            print(f"  ✅  Sesión restaurada automáticamente para {username}")
+            self._on_login_success(usuario, tapo)
+
+        except Exception as e:
+            print(f"  ⚠️  Error al restaurar sesión: {e}. Volviendo al login.")
+            self._push_login_screen()
 
     def _on_login_success(self, usuario, tapo):
         """Callback al autenticarse: aplica idle y entra al juego."""
