@@ -44,11 +44,13 @@ class ClienteCombate:
         tapo_local: Tapo,
         host_ip: str,
         port: int = DEFAULT_PORT,
+        puerto_local: int | None = None,
         callback_log=None,
     ) -> None:
         self.tapo_local   = tapo_local
         self.host_ip      = host_ip
         self.port         = port
+        self.puerto_local = puerto_local or (port + 1)
         self._log         = callback_log or print
         self._conn: ConexionP2P | None = None
         self.estado: EstadoCombate | None = None
@@ -59,13 +61,15 @@ class ClienteCombate:
     # ---------------------------------------------------------------- #
 
     def conectar(self) -> None:
-        """Se conecta al host, realiza el handshake y ejecuta el combate."""
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(TIMEOUT_SEC)
-        self._log(f"[CLIENT] Conectando a {self.host_ip}:{self.port}...")
-        sock.connect((self.host_ip, self.port))
-        self._log(f"[CLIENT] Conectado al host.")
-        self._conn = ConexionP2P(sock)
+        """Inicializa la conexión WebRTC, se conecta al host y realiza el handshake."""
+        self._log(f"[CLIENT] Conectando a {self.host_ip}:{self.port} usando puerto local {self.puerto_local}...")
+        
+        self._conn = ConexionP2P(
+            puerto_local=self.puerto_local,
+            host_ip=self.host_ip,
+            port=self.port,
+            mode="client"
+        )
         self._corriendo = True
 
         try:

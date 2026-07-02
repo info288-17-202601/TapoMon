@@ -6,9 +6,12 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
-PLAYER=$1
+PLAYER=$(echo "$1" | tr '[:upper:]' '[:lower:]')
 
 echo "🎮 Levantando entorno para: $PLAYER..."
+
+# 0. Aseguramos que la red compartida de Docker exista
+docker network inspect tapomon-shared-net >/dev/null 2>&1 || docker network create tapomon-shared-net
 
 # 1. Aseguramos que la imagen base esté construida con el código más reciente
 docker compose -f docker-compose.client.yml build gameengine
