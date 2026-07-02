@@ -1,32 +1,69 @@
 """
 db/local_db.py
-Capa de acceso a datos usando MongoDB (pymongo).
-Las colecciones reflejan exactamente el esquema del informe:
-  - usuarios   → Tabla Usuario
-  - mascotas   → Tabla Tapo
-  - inbox      → Tabla Inbox
+Capa de acceso a datos usando un archivo local de texto cifrado.
+Reemplaza a MongoDB en el cliente, manteniendo las mismas firmas
+para no romper el resto del código del juego.
 """
 from __future__ import annotations
-import re
+import os
+import json
 import uuid
 from datetime import datetime
+import base64
 
-from db.connection import get_db
 from models.usuario import Usuario
 from models.tapo import Tapo, Vitales, Estadistica, TipoTapo
 
+# Archivo donde se guardará el estado
+SAVE_FILE = "tapo_save.enc"
+XOR_KEY = b"TapoMonLocalSaveKey2026"
 
-# ------------------------------------------------------------------ #
-#  Colecciones (nombres fijos, igual que en el informe)
-# ------------------------------------------------------------------ #
-COL_USUARIOS = "Usuarios"
-COL_MASCOTAS = "Tapo"
-COL_INBOX    = "Inbox"
+class _FileDB:
+    def __init__(self, filename: str):
+        self.filename = filename
+        self.data = {
+            "Usuarios": [],
+            "Tapo": [],
+            "Inbox": []
+        }
+        self.load()
 
+    def _encrypt(self, text: str) -> bytes:
+        encoded = text.encode("utf-8")
+        xored = bytes(encoded[i] ^ XOR_KEY[i % len(XOR_KEY)] for i in range(len(encoded)))
+        return base64.b64encode(xored)
 
-def _col(nombre: str):
-    """Shortcut para obtener una colección."""
-    return get_db()[nombre]
+    def _decrypt(self, b64_bytes: bytes) -> str:
+        xored = base64.b64decode(b64_bytes)
+        decoded = bytes(xored[i] ^ XOR_KEY[i % len(XOR_KEY)] for i in range(len(xored)))
+        return decoded.decode("utf-8")
+
+    def load(self):
+        if not os.path.exists(self.filename):
+            self.save()
+            return
+        
+        try:
+            with open(self.filename, "rb") as f:
+                content = f.read()
+                if content:
+                    json_text = self._decrypt(content)
+                    self.data = json.loads(json_text)
+        except Exception as e:
+            print(f"Error cargando guardado local: {e}")
+            # Si se corrompe, reiniciamos memoria (en prod tal vez queramos backup)
+            pass
+
+    def save(self):
+        try:
+            json_text = json.dumps(self.data)
+            encrypted = self._encrypt(json_text)
+            with open(self.filename, "wb") as f:
+                f.write(encrypted)
+        except Exception as e:
+            print(f"Error guardando partida local: {e}")
+
+_db_instance = _FileDB(SAVE_FILE)
 
 
 # ================================================================== #
@@ -34,24 +71,29 @@ def _col(nombre: str):
 # ================================================================== #
 
 def guardar_usuario(usuario: Usuario) -> None:
-    """Inserta o actualiza un usuario (upsert por Id)."""
-    _col(COL_USUARIOS).update_one(
-        {"Id": usuario.id},
-        {"$set": usuario.to_dict()},
-        upsert=True,
-    )
+    data = usuario.to_dict()
+    for idx, u in enumerate(_db_instance.data["Usuarios"]):
+        if u.get("Id") == usuario.id:
+            _db_instance.data["Usuarios"][idx] = data
+            _db_instance.save()
+            return
+    _db_instance.data["Usuarios"].append(data)
+    _db_instance.save()
 
 
 def buscar_usuario_por_username(username: str) -> Usuario | None:
-    doc = _col(COL_USUARIOS).find_one(
-        {"Username": {"$regex": f"^{username}$", "$options": "i"}}
-    )
-    return Usuario.from_dict(doc) if doc else None
+    username_lower = username.lower()
+    for u in _db_instance.data["Usuarios"]:
+        if u.get("Username", "").lower() == username_lower:
+            return Usuario.from_dict(u)
+    return None
 
 
 def buscar_usuario_por_id(uid: str) -> Usuario | None:
-    doc = _col(COL_USUARIOS).find_one({"Id": uid})
-    return Usuario.from_dict(doc) if doc else None
+    for u in _db_instance.data["Usuarios"]:
+        if u.get("Id") == uid:
+            return Usuario.from_dict(u)
+    return None
 
 
 # ================================================================== #
@@ -59,97 +101,108 @@ def buscar_usuario_por_id(uid: str) -> Usuario | None:
 # ================================================================== #
 
 def guardar_tapo(tapo: Tapo) -> None:
-    """Inserta o actualiza una mascota (upsert por id_mascota)."""
     data = tapo.to_dict()
-    # Last_Sync guardado como datetime nativo de MongoDB (no string)
-    data["Last_Sync"] = tapo.last_sync
-    _col(COL_MASCOTAS).update_one(
-        {"id_mascota": tapo.id_mascota},
-        {"$set": data},
-        upsert=True,
-    )
+    # Asegurar que Last_Sync sea string para JSON
+    data["Last_Sync"] = tapo.last_sync.isoformat() if isinstance(tapo.last_sync, datetime) else tapo.last_sync
+    for idx, t in enumerate(_db_instance.data["Tapo"]):
+        if t.get("id_mascota") == tapo.id_mascota:
+            _db_instance.data["Tapo"][idx] = data
+            _db_instance.save()
+            return
+    _db_instance.data["Tapo"].append(data)
+    _db_instance.save()
 
 
 def cargar_tapo(tapo_id: str) -> Tapo | None:
-    doc = _col(COL_MASCOTAS).find_one({"id_mascota": tapo_id})
-    if doc is None:
-        return None
-    # MongoDB devuelve Last_Sync como datetime; normalizar para from_dict
-    if isinstance(doc.get("Last_Sync"), datetime):
-        doc["Last_Sync"] = doc["Last_Sync"].isoformat()
-    return Tapo.from_dict(doc)
+    for t in _db_instance.data["Tapo"]:
+        if t.get("id_mascota") == tapo_id:
+            # Si guardamos Last_Sync como isoformat, from_dict lo manejará
+            return Tapo.from_dict(t)
+    return None
 
 
 def buscar_tapos_por_texto(texto: str) -> list[dict]:
-    """Busca mascotas por nombre o por username del propietario."""
-    query = str(texto or "").strip()
+    query = str(texto or "").strip().lower()
     if not query:
         return []
 
-    pattern = {"$regex": re.escape(query), "$options": "i"}
-    matches: list[dict] = []
-    seen_ids: set[str] = set()
+    matches = []
+    seen_ids = set()
 
-    for tapo_doc in _col(COL_MASCOTAS).find({"Nombre": pattern}):
-        tapo_id = tapo_doc.get("id_mascota")
-        if not tapo_id or tapo_id in seen_ids:
-            continue
-        seen_ids.add(tapo_id)
-        usuario_doc = _col(COL_USUARIOS).find_one({"Tapo_ID": tapo_id})
-        matches.append({
-            "id_mascota": tapo_id,
-            "nombre": tapo_doc.get("Nombre"),
-            "username": usuario_doc.get("Username") if usuario_doc else None,
-        })
+    # Buscar por nombre del Tapo
+    for t in _db_instance.data["Tapo"]:
+        if query in str(t.get("Nombre", "")).lower():
+            t_id = t.get("id_mascota")
+            if not t_id or t_id in seen_ids:
+                continue
+            seen_ids.add(t_id)
+            # Buscar dueño
+            username = None
+            for u in _db_instance.data["Usuarios"]:
+                if u.get("Tapo_ID") == t_id:
+                    username = u.get("Username")
+                    break
+            matches.append({
+                "id_mascota": t_id,
+                "nombre": t.get("Nombre"),
+                "username": username,
+            })
 
-    for usuario_doc in _col(COL_USUARIOS).find({"Username": pattern}):
-        tapo_id = usuario_doc.get("Tapo_ID")
-        if not tapo_id or tapo_id in seen_ids:
-            continue
-        seen_ids.add(tapo_id)
-        tapo_doc = _col(COL_MASCOTAS).find_one({"id_mascota": tapo_id})
-        if tapo_doc is None:
-            continue
-        matches.append({
-            "id_mascota": tapo_id,
-            "nombre": tapo_doc.get("Nombre"),
-            "username": usuario_doc.get("Username"),
-        })
+    # Buscar por nombre del dueño
+    for u in _db_instance.data["Usuarios"]:
+        if query in str(u.get("Username", "")).lower():
+            t_id = u.get("Tapo_ID")
+            if not t_id or t_id in seen_ids:
+                continue
+            seen_ids.add(t_id)
+            
+            nombre_tapo = None
+            for t in _db_instance.data["Tapo"]:
+                if t.get("id_mascota") == t_id:
+                    nombre_tapo = t.get("Nombre")
+                    break
+            
+            if nombre_tapo:
+                matches.append({
+                    "id_mascota": t_id,
+                    "nombre": nombre_tapo,
+                    "username": u.get("Username"),
+                })
 
     return matches
 
 
 # ================================================================== #
-#  INBOX (mensajes entre mascotas — Tabla Inbox del informe)
+#  INBOX
 # ================================================================== #
 
 def enviar_mensaje(recipient_id: str, sender_id: str, payload: dict) -> str:
-    """Inserta un mensaje en la bandeja de entrada del destinatario."""
     msg_id = str(uuid.uuid4())
-    _col(COL_INBOX).insert_one({
+    msg = {
         "ID_Mensaje":   msg_id,
         "Recipient_ID": recipient_id,
         "Sender_ID":    sender_id,
         "Payload":      payload,
-        "Status":       False,          # claimed: false
-        "Timestamp":    datetime.now(),
-    })
+        "Status":       False,
+        "Timestamp":    datetime.now().isoformat(),
+    }
+    _db_instance.data["Inbox"].append(msg)
+    _db_instance.save()
     return msg_id
 
 
 def leer_mensajes(recipient_id: str) -> list[dict]:
-    """Retorna todos los mensajes no reclamados de un destinatario."""
-    cursor = _col(COL_INBOX).find(
-        {"Recipient_ID": recipient_id, "Status": False}
-    )
-    return list(cursor)
+    return [
+        m for m in _db_instance.data["Inbox"]
+        if m.get("Recipient_ID") == recipient_id and not m.get("Status", False)
+    ]
 
 
 def marcar_mensaje_reclamado(msg_id: str) -> None:
-    _col(COL_INBOX).update_one(
-        {"ID_Mensaje": msg_id},
-        {"$set": {"Status": True}},
-    )
+    for m in _db_instance.data["Inbox"]:
+        if m.get("ID_Mensaje") == msg_id:
+            m["Status"] = True
+    _db_instance.save()
 
 
 # ================================================================== #
@@ -163,7 +216,6 @@ def registrar_nuevo_usuario(
     nombre_tapo: str,
     tipo_tapo: TipoTapo,
 ) -> tuple[Usuario, Tapo]:
-    """Crea usuario y mascota nuevos, los persiste en MongoDB."""
     uid     = str(uuid.uuid4())
     tapo_id = str(uuid.uuid4())
 
@@ -178,10 +230,6 @@ def registrar_nuevo_usuario(
 
     guardar_usuario(usuario)
     guardar_tapo(tapo)
-
-    # Crear índices útiles la primera vez (idempotente)
-    _crear_indices()
-
     return usuario, tapo
 
 
@@ -190,7 +238,6 @@ def registrar_nueva_mascota(
     nombre_tapo: str,
     tipo_tapo: TipoTapo,
 ) -> Tapo:
-    """Crea una nueva mascota para un usuario existente."""
     tapo_id = str(uuid.uuid4())
 
     tapo = Tapo(
@@ -202,18 +249,9 @@ def registrar_nueva_mascota(
     usuario.tapo_id = tapo_id
     guardar_usuario(usuario)
     guardar_tapo(tapo)
-
-    _crear_indices()
     return tapo
 
 
 def _crear_indices() -> None:
-    """
-    Crea índices en MongoDB para consultas frecuentes.
-    Se puede llamar varias veces sin problema (idempotente).
-    """
-    db = get_db()
-    db[COL_USUARIOS].create_index("Username", unique=True)
-    db[COL_USUARIOS].create_index("Id",       unique=True)
-    db[COL_MASCOTAS].create_index("id_mascota", unique=True)
-    db[COL_INBOX].create_index([("Recipient_ID", 1), ("Status", 1)])
+    """No-op: los índices no son necesarios en el archivo local cifrado."""
+    pass

@@ -117,6 +117,10 @@ def intentar_accion_autonoma(tapo_doc: dict, tick_n: int) -> str | None:
     else:
         action = "train"
 
+    # Fallback a comer si no hay energía
+    if action in ("play", "train") and vitales.get("energia", 0) < SELF_PLAY_ENERGIA_MIN:
+        action = "eat"
+
     accion_label: str
 
     if action == "eat":
@@ -125,11 +129,13 @@ def intentar_accion_autonoma(tapo_doc: dict, tick_n: int) -> str | None:
 
     elif action == "play":
         vitales["felicidad"] = _clamp(vitales.get("felicidad", 0) + SELF_PLAY_FELICIDAD)
+        vitales["energia"]   = _clamp(vitales.get("energia", 0) + SELF_PLAY_ENERGIA)
         accion_label = "jugó solo"
 
     else:  # train
         stat = random.choice(["fuerza", "defensa", "velocidad"])
         estadistica[stat]    = _clamp(estadistica.get(stat, 0) + SELF_TRAIN_STAT)
+        vitales["energia"]   = _clamp(vitales.get("energia", 0) + SELF_PLAY_ENERGIA)
         accion_label = f"entrenó {stat} solo"
 
     tapo_doc["Vitales"]     = vitales
@@ -166,13 +172,13 @@ def aplicar_degradacion(tapo_doc: dict, ticks: int) -> tuple[dict, list[str]]:
         if estadistica.get("vida", 0) <= 0:
             break
 
-        # 1. Degradar vitales (la energía se recupera en modo idle al estar descansando)
+        # 1. Degradar vitales
         vitales["hambre"]    = _clamp(vitales.get("hambre",    100) + TICK_HAMBRE)
-        vitales["energia"]   = _clamp(vitales.get("energia",   100) + abs(TICK_ENERGIA))
+        vitales["energia"]   = _clamp(vitales.get("energia",   100) + TICK_ENERGIA)
         vitales["felicidad"] = _clamp(vitales.get("felicidad", 100) + TICK_FELICIDAD)
 
-        # 2. Salud cae si hambre llega a 0
-        if vitales["hambre"] == 0:
+        # 2. Salud cae si hambre o energia llega a 0
+        if vitales["hambre"] == 0 or vitales["energia"] == 0:
             vitales["salud"] = _clamp(vitales.get("salud", 100) + TICK_SALUD_BASE)
 
         # 3. Vida cae si salud llega a 0

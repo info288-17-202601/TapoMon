@@ -1,9 +1,10 @@
 # ──────────────────────────────────────────────────────
-#  server/Dockerfile
-#  Build context: ./server  (only the server package)
+#  server/coordinator/Dockerfile
+#  Build context: ./server  (igual que el servidor regional)
 #
-#  The server package uses absolute imports: "from server.X import ..."
-#  so the COPY lands under /app/server/ and WORKDIR stays at /app.
+#  El coordinador usa los mismos imports "from server.coordinator.X import ..."
+#  así que comparte el build context con el servidor, pero ejecuta
+#  un módulo diferente (server.coordinator.main).
 # ──────────────────────────────────────────────────────
 FROM python:3.13-slim
 
@@ -14,9 +15,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire server package into /app/server/
-# so that "from server.X import ..." works from /app
+# so that "from server.coordinator.X import ..." works from /app
 COPY . /app/server/
 
-EXPOSE 8000
+EXPOSE 8080
 
-CMD ["python", "-m", "uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["python", "-m", "uvicorn", "server.coordinator.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
