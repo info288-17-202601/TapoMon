@@ -10,9 +10,18 @@ Justificación:
     Esto es equivalente a la definición de interfaces en RMI/RPC.
 """
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
+import re
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+def _validar_correo(v: str) -> str:
+    """Validación simple de formato de email."""
+    if not _EMAIL_RE.match(v.strip()):
+        raise ValueError(f"'{v}' no es un correo electrónico válido.")
+    return v.strip().lower()
 
 
 # ================================================================== #
@@ -81,6 +90,22 @@ class RegisterRequest(BaseModel):
     password:   str
     usuario_id: str   # UUID generado por el cliente (debe coincidir con DB local)
     tapo_id:    str   # UUID de la mascota generado por el cliente
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Payload para solicitar el envío del correo de reset."""
+    correo: str
+
+    @field_validator("correo")
+    @classmethod
+    def correo_valido(cls, v: str) -> str:
+        return _validar_correo(v)
+
+
+class ResetPasswordRequest(BaseModel):
+    """Payload para confirmar el reset con el token recibido por email."""
+    token:          str
+    nueva_password: str
 
 
 # ================================================================== #
@@ -163,3 +188,23 @@ class ErrorResponse(BaseModel):
     """Respuesta genérica de error."""
     success: bool = False
     message: str
+
+
+# ================================================================== #
+#  2FA — Verificación de dos pasos
+# ================================================================== #
+
+class LoginChallengeResponse(BaseModel):
+    """
+    Respuesta al login cuando 2FA está activo.
+    El cliente debe solicitar el código y llamar a /auth/verify-2fa.
+    """
+    requires_2fa: bool = True
+    session_id:   str
+    correo_hint:  str   # Correo parcialmente oculto para mostrar al usuario
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    """Payload para verificar el código 2FA."""
+    session_id: str
+    codigo:     str
