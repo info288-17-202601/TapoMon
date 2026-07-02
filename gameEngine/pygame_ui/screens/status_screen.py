@@ -179,6 +179,8 @@ class StatusScreen(Screen):
         self.local_db.guardar_usuario(self.usuario)
         if self.sync_client.is_connected():
             self.sync_client.upload_state(self.tapo)
+        # Borrar sesión guardada: al reabrir el juego pedirá login+2FA
+        self.sync_client.logout_session()
         from pygame_ui.screens.login_screen import LoginScreen
         self.manager.replace(
             LoginScreen(self.manager, self.local_db, self.sync_client,

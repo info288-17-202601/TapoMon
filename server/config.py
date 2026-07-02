@@ -75,6 +75,16 @@ SELF_TRAIN_STAT      = int(os.getenv("SELF_TRAIN_STAT",      "1"))    # entrenar
 # ------------------------------------------------------------------ #
 #  Colecciones MongoDB (consistente con el cliente)
 # ------------------------------------------------------------------ #
-COL_USUARIOS = "Usuarios"
-COL_MASCOTAS = "Tapo"
-COL_INBOX    = "Inbox"
+COL_USUARIOS     = "Usuarios"
+COL_MASCOTAS     = "Tapo"
+COL_INBOX        = "Inbox"
+COL_RESET_TOKENS = "PasswordResetTokens"
+COL_2FA_CODES    = "TwoFactorCodes"
+
+# ------------------------------------------------------------------ #
+#  Brevo (email transaccional para recuperación de contraseña)
+# ------------------------------------------------------------------ #
+BREVO_API_KEY      = os.getenv("BREVO_API_KEY", "")
+BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "noreply@tapomon.com")
+BREVO_SENDER_NAME  = os.getenv("BREVO_SENDER_NAME", "TapoMon")
+SERVER_BASE_URL    = os.getenv("SERVER_BASE_URL", "http://localhost:8000")

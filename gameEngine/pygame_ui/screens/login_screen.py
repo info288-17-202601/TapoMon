@@ -22,9 +22,13 @@ class LoginScreen(Screen):
         self.sync_client = sync_client
         self.on_success  = on_success   # callback(usuario, tapo)
  
-        self._tab    = "login"          # "login" | "register"
+        self._tab    = "login"          # "login" | "register" | "forgot" | "code"
         self._time   = 0.0
         self._toast: Toast | None = None
+        self._session_id:   str = ""    # 2FA: ID de sesión del challenge
+        self._correo_hint:  str = ""    # 2FA: correo parcialmente oculto
+        self._login_user:   str = ""    # guardado para el mensaje de bienvenida
+        self._login_pass:   str = ""    # guardado para crear usuario local
  
         self._build_widgets()
  
@@ -91,9 +95,54 @@ class LoginScreen(Screen):
         self.tab_reg_btn   = Button(cx + 10,  210, 110, 36, text="Registro",
                                     callback=lambda: self._switch_tab("register"))
  
+        # ── ¿Olvidaste tu contraseña? ────────────────────────────────
+        self.tf_forgot_email = TextField(panel_x, 305, panel_w, 44, placeholder="Tu correo electrónico")
+        self.btn_forgot_send = Button(
+            panel_x, 367, panel_w, BTN_H,
+            text="Enviar enlace de recuperación",
+            callback=self._do_forgot_password,
+            accent_color=(90, 60, 200),
+        )
+        self.btn_back_to_login = Button(
+            panel_x, 367 + BTN_H + 10, panel_w, 34,
+            text="← Volver al login",
+            callback=lambda: self._switch_tab("login"),
+        )
+
+        # ── 2FA: Entrada de código ─────────────────────────────────
+        self.tf_2fa_code = TextField(panel_x, 315, panel_w, 52,
+                                     placeholder="Código de 6 dígitos")
+        self.btn_2fa_verify = Button(
+            panel_x, 385, panel_w, BTN_H,
+            text="✅  Verificar código",
+            callback=self._do_verify_2fa,
+            accent_color=(50, 180, 100),
+        )
+        self.btn_2fa_back = Button(
+            panel_x, 385 + BTN_H + 10, panel_w, 34,
+            text="← Volver al login",
+            callback=lambda: self._switch_tab("login"),
+        )
+
     # ---------------------------------------------------------------- #
     #  Lógica de autenticación (conecta al backend real)
     # ---------------------------------------------------------------- #
+ 
+    def _do_forgot_password(self):
+        correo = self.tf_forgot_email.text.strip()
+        if not correo:
+            self._show_toast("Ingresa tu correo electrónico", ok=False)
+            return
+        try:
+            self._show_toast("Enviando enlace de recuperación...", ok=True)
+            ok = self.sync_client.forgot_password(correo)
+            if ok:
+                self._show_toast("Si el correo está registrado, recibirás un enlace en breve ✉️", ok=True)
+                self.tf_forgot_email.text = ""
+            else:
+                self._show_toast("Error de conexión con el servidor", ok=False)
+        except Exception as e:
+            self._show_toast(f"Error: {e}", ok=False)
  
     def _do_login(self):
         username = self.tf_user.text.strip()
@@ -102,15 +151,41 @@ class LoginScreen(Screen):
             self._show_toast("Completa todos los campos", ok=False)
             return
         try:
-            self._show_toast("Autenticando con servidor central...", ok=True)
-            auth_data = self.sync_client.login(username, password)
+            self._show_toast("Verificando credenciales...", ok=True)
+            challenge = self.sync_client.login(username, password)
+            if not challenge:
+                self._show_toast("Credenciales incorrectas o servidor no disponible", ok=False)
+                return
+
+            # Guardar datos para usarlos en el paso 2
+            self._session_id  = challenge["session_id"]
+            self._correo_hint = challenge["correo_hint"]
+            self._login_user  = username
+            self._login_pass  = password
+
+            self.tf_2fa_code.text = ""
+            self._switch_tab("code")
+            self._show_toast(f"Código enviado a {self._correo_hint} ✉️", ok=True)
+        except Exception as e:
+            self._show_toast(f"Error: {e}", ok=False)
+
+    def _do_verify_2fa(self):
+        codigo = self.tf_2fa_code.text.strip()
+        if len(codigo) != 6 or not codigo.isdigit():
+            self._show_toast("Ingresa el código de 6 dígitos numéricos", ok=False)
+            return
+        try:
+            self._show_toast("Verificando código...", ok=True)
+            auth_data = self.sync_client.verify_2fa(self._session_id, codigo)
             if not auth_data:
-                self._show_toast("Credenciales incorrectas o el servidor no está disponible", ok=False)
+                self._show_toast("Código incorrecto o expirado. Inténtalo de nuevo.", ok=False)
                 return
 
             usuario_id = auth_data["usuario_id"]
-            correo = auth_data["correo"]
-            tapo_id = auth_data["tapo_id"]
+            correo     = auth_data["correo"]
+            tapo_id    = auth_data["tapo_id"]
+            username   = self._login_user
+            password   = self._login_pass
 
             server_state = self.sync_client.resume(usuario_id)
             if not server_state or not server_state.get("tapo"):
@@ -168,15 +243,12 @@ class LoginScreen(Screen):
 
             usuario = Usuario(id=usuario_id, username=username, correo=correo, tapo_id=tapo_id)
             usuario.set_password(password)
-
             
             #tipo_enum = TipoTapo(self._tipo_sel) if hasattr(TipoTapo, self._tipo_sel) else TipoTapo.NORMAL
             try:
                 tipo_enum = TipoTapo(self._tipo_sel)
             except ValueError:
                 tipo_enum = TipoTapo.NORMAL
-            
-
             tapo = Tapo(
                 id_mascota=tapo_id,
                 nombre=nombre,
@@ -198,6 +270,9 @@ class LoginScreen(Screen):
  
     def _switch_tab(self, tab: str):
         self._tab = tab
+        # Limpiar campo de forgot al entrar
+        if tab == "forgot":
+            self.tf_forgot_email.text = ""
  
     def _show_toast(self, msg: str, ok: bool = True):
         self._toast = Toast(msg, ok=ok)
@@ -210,6 +285,13 @@ class LoginScreen(Screen):
         if self._tab == "login":
             for w in [self.tf_user, self.tf_pass,
                     self.btn_login, self.tab_login_btn, self.tab_reg_btn]:
+                w.handle_event(event)
+        elif self._tab == "forgot":
+            for w in [self.tf_forgot_email, self.btn_forgot_send,
+                      self.btn_back_to_login]:
+                w.handle_event(event)
+        elif self._tab == "code":
+            for w in [self.tf_2fa_code, self.btn_2fa_verify, self.btn_2fa_back]:
                 w.handle_event(event)
         else:
             for w in [self.tf_reg_user, self.tf_reg_email, self.tf_reg_pass,
@@ -235,6 +317,13 @@ class LoginScreen(Screen):
         if self._tab == "login":
             for w in [self.tf_user, self.tf_pass, self.btn_login,
                     self.tab_login_btn, self.tab_reg_btn]:
+                w.update(dt)
+        elif self._tab == "forgot":
+            for w in [self.tf_forgot_email, self.btn_forgot_send,
+                      self.btn_back_to_login]:
+                w.update(dt)
+        elif self._tab == "code":
+            for w in [self.tf_2fa_code, self.btn_2fa_verify, self.btn_2fa_back]:
                 w.update(dt)
         else:
             for w in [self.tf_reg_user, self.tf_reg_email, self.tf_reg_pass,
@@ -266,16 +355,28 @@ class LoginScreen(Screen):
  
         # Panel con fondo
         panel_x, panel_w = cx - 200, 400
-        panel_h = 340 if self._tab == "login" else 400
+        if self._tab == "forgot":
+            panel_h = 270
+        elif self._tab == "code":
+            panel_h = 310
+        elif self._tab == "login":
+            panel_h = 340
+        else:
+            panel_h = 400
         draw_rounded_rect(surf, pygame.Rect(panel_x, 195, panel_w, panel_h), C_BG2, radius=14,
                           border=1, border_color=C_BORDER)
  
-        # Tabs
-        self.tab_login_btn.draw(surf, fonts["small"])
-        self.tab_reg_btn.draw(surf, fonts["small"])
+        # Tabs (solo en login / registro)
+        if self._tab not in ("forgot", "code"):
+            self.tab_login_btn.draw(surf, fonts["small"])
+            self.tab_reg_btn.draw(surf, fonts["small"])
  
         if self._tab == "login":
             self._draw_login(surf, fonts)
+        elif self._tab == "forgot":
+            self._draw_forgot(surf, fonts)
+        elif self._tab == "code":
+            self._draw_code(surf, fonts)
         else:
             self._draw_register(surf, fonts)
  
@@ -284,9 +385,36 @@ class LoginScreen(Screen):
             self._toast.draw(surf, fonts["label"])
  
     def _draw_login(self, surf, fonts):
+        cx = SCREEN_W // 2
         self.tf_user.draw(surf, fonts["label"])
         self.tf_pass.draw(surf, fonts["label"])
         self.btn_login.draw(surf, fonts["label"])
+ 
+        # Link "¿Olvidaste tu contraseña?"
+        lbl = fonts["small"].render("¿Olvidaste tu contraseña?", True, (100, 100, 200))
+        lbl_rect = lbl.get_rect(center=(cx, 462))
+        surf.blit(lbl, lbl_rect)
+        # Detectar hover manualmente para efecto visual (no es un Button)
+        mx, my = pygame.mouse.get_pos()
+        if lbl_rect.collidepoint(mx, my):
+            pygame.draw.line(surf, (130, 130, 220),
+                             (lbl_rect.left, lbl_rect.bottom + 1),
+                             (lbl_rect.right, lbl_rect.bottom + 1), 1)
+            if pygame.mouse.get_pressed()[0]:
+                self._switch_tab("forgot")
+ 
+    def _draw_forgot(self, surf, fonts):
+        cx = SCREEN_W // 2
+        # Título
+        title = fonts["label"].render("🔑  Recuperar contraseña", True, (200, 190, 255))
+        surf.blit(title, (cx - title.get_width() // 2, 220))
+ 
+        hint = fonts["small"].render("Escribe tu correo y te enviaremos un enlace.", True, (100, 100, 130))
+        surf.blit(hint, (cx - hint.get_width() // 2, 248))
+ 
+        self.tf_forgot_email.draw(surf, fonts["label"])
+        self.btn_forgot_send.draw(surf, fonts["small"])
+        self.btn_back_to_login.draw(surf, fonts["small"])
  
     def _draw_register(self, surf, fonts):
         self.tf_reg_user.draw(surf, fonts["small"])
@@ -310,6 +438,24 @@ class LoginScreen(Screen):
             btn.draw(surf, fonts["small"])
  
         self.btn_register.draw(surf, fonts["label"])
+
+    def _draw_code(self, surf, fonts):
+        """Pantalla de verificación 2FA."""
+        cx = SCREEN_W // 2
+
+        # Título
+        title = fonts["label"].render("🛡️  Verificación en dos pasos", True, (130, 200, 255))
+        surf.blit(title, (cx - title.get_width() // 2, 215))
+
+        # Correo hint
+        hint1 = fonts["small"].render("Código enviado a:", True, (100, 110, 140))
+        surf.blit(hint1, (cx - hint1.get_width() // 2, 248))
+        hint2 = fonts["small"].render(self._correo_hint or "tu correo", True, (160, 170, 220))
+        surf.blit(hint2, (cx - hint2.get_width() // 2, 265))
+
+        self.tf_2fa_code.draw(surf, fonts["label"])
+        self.btn_2fa_verify.draw(surf, fonts["small"])
+        self.btn_2fa_back.draw(surf, fonts["small"])
  
  
 # ──────────────────────────────────────────────────────────────────── #

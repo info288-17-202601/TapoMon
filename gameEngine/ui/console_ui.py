@@ -72,6 +72,7 @@ def pantalla_bienvenida() -> None:
     print()
     print("  [1] Iniciar sesión")
     print("  [2] Registrarse")
+    print("  [3] ¿Olvidaste tu contraseña?")
     print("  [0] Salir")
     print()
 
@@ -172,6 +173,25 @@ def form_registro() -> tuple[str, str, str, str, TipoTapo]:
             print("  Opción inválida, intenta de nuevo.")
 
     return username, correo, password, nombre_tapo, tipo
+
+
+def form_forgot_password() -> str:
+    titulo("🔑 Recuperar contraseña")
+    print("  Ingresa el correo electrónico asociado a tu cuenta.")
+    print("  Recibirás un enlace para restablecer tu contraseña.")
+    print()
+    correo = input("  Correo electrónico: ").strip()
+    return correo
+
+
+def form_2fa_code(correo_hint: str = "") -> str:
+    titulo("Verificación en dos pasos")
+    if correo_hint:
+        print(f"  Se envió un código de 6 dígitos a: {correo_hint}")
+    print("  Revisa tu correo e ingresa el código:")
+    print()
+    codigo = input("  Código: ").strip()
+    return codigo
 
 
 def form_nueva_mascota() -> tuple[str, TipoTapo]:
