@@ -3,3 +3,4 @@ pymongo==4.17.0
 python-dotenv==1.2.2
 requests==2.32.3
 pygame==2.6.1
+aiortc==1.14.0

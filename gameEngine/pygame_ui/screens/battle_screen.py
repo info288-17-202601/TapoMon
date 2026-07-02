@@ -221,7 +221,7 @@ class BattleScreen(Screen):
                 advertised_port = int(os.getenv("P2P_HOST_PORT", str(DEFAULT_PORT)))
 
                 from p2pEngine.p2p_server import ServidorCombate
-                self._combat_obj = ServidorCombate(self.tapo, callback_log=self._log_cb)
+                self._combat_obj = ServidorCombate(self.tapo, port=advertised_port, callback_log=self._log_cb)
                 self._thread = threading.Thread(
                     target=self._combat_obj.iniciar, daemon=True
                 )
@@ -229,15 +229,18 @@ class BattleScreen(Screen):
                 self._add_log(f"Host IP:PUERTO -> {advertised_ip}:{advertised_port}", C_ACCENT)
                 self._add_log("Esperando challenger...", C_ACCENT)
             else:
+                import os
+                client_port = int(os.getenv("P2P_CLIENT_PORT", str(self.port + 1)))
                 from p2pEngine.p2p_client import ClienteCombate
                 self._combat_obj = ClienteCombate(
-                    self.tapo, host_ip=self.ip, port=self.port, callback_log=self._log_cb
+                    self.tapo, host_ip=self.ip, port=self.port, puerto_local=client_port, callback_log=self._log_cb
                 )
                 self._thread = threading.Thread(
                     target=self._combat_obj.conectar, daemon=True
                 )
                 self._thread.start()
                 self._add_log(f"Conectando a {self.ip}:{self.port}...", C_ACCENT)
+                self._add_log(f"Puerto local WebRTC: {client_port}", C_ACCENT)
         except Exception as e:
             self._add_log(f"Error: {e}", C_HP_LOW)
 

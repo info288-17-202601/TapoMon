@@ -88,7 +88,8 @@ services:
 
 networks:
   tapomon-client-net:
-    driver: bridge
+    name: tapomon-shared-net
+    external: true
 
 volumes:
   mongodb_local_data:

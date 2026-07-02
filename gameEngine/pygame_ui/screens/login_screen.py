@@ -8,6 +8,7 @@ import pygame
 from pygame_ui.screen_manager import Screen
 from pygame_ui.widgets import Button, TextField, Toast, draw_rounded_rect, draw_glowing_rect
 from pygame_ui.constants import *
+from models.tapo import Tapo
  
  
 class LoginScreen(Screen):
