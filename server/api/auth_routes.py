@@ -346,8 +346,11 @@ async def reset_password_page(token: str):
       btn.disabled    = true;
       btn.textContent = 'Procesando...';
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const region = urlParams.get('region') || '';
+
       try {{
-        const res = await fetch('/auth/reset-password', {{
+        const res = await fetch(`/auth/reset-password?region=${{region}}`, {{
           method:  'POST',
           headers: {{ 'Content-Type': 'application/json' }},
           body:    JSON.stringify({{ token: TOKEN, nueva_password: p1 }}),

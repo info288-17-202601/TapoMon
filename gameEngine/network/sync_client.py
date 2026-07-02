@@ -232,6 +232,7 @@ class SyncClient:
             resp = requests.post(
                 f"{self.base_url}/auth/verify-2fa",
                 json={"session_id": session_id, "codigo": codigo},
+                headers=self._headers,
                 timeout=REQUEST_TIMEOUT,
             )
             if resp.status_code == 200:
@@ -270,6 +271,11 @@ class SyncClient:
         if data:
             self._token      = data.get("access_token")
             self._usuario_id = data.get("usuario_id")
+            # CRÍTICO: averiguar la región asignada antes de usar la sesión.
+            # Sin esto, resume() no sabrá a qué servidor regional apuntar.
+            username = data.get("username")
+            if username:
+                self._resolve_server_by_username(username)
         return data
 
     def logout_session(self) -> None:
@@ -583,21 +589,30 @@ class SyncClient:
     def forgot_password(self, correo: str) -> bool:
         """
         Solicita el envío de un correo de recuperación de contraseña.
-
-        Args:
-            correo: Correo electrónico del usuario que olvidó su contraseña.
-
-        Returns:
-            True si la solicitud llegó al servidor (independiente de si el
-            correo existe), False si hubo un error de conexión.
+        Envía la petición a todos los servidores regionales porque el cliente
+        desconectado no sabe en qué región está registrado el correo.
         """
         try:
-            resp = requests.post(
-                f"{self.base_url}/auth/forgot-password",
-                json={"correo": correo},
-                timeout=REQUEST_TIMEOUT,
-            )
-            return resp.status_code == 200
+            servers = self.listar_servidores()
+            if not servers:
+                print("  ⚠️  No hay servidores disponibles para procesar la solicitud.")
+                return False
+
+            success = False
+            for s in servers:
+                headers = self._headers.copy()
+                headers["X-Server-Region"] = s.get("name", "norte")
+                
+                resp = requests.post(
+                    f"{self.base_url}/auth/forgot-password",
+                    json={"correo": correo},
+                    headers=headers,
+                    timeout=REQUEST_TIMEOUT,
+                )
+                if resp.status_code == 200:
+                    success = True
+            
+            return success
         except requests.ConnectionError:
             print("  ⚠️  Servidor no disponible. No se pudo enviar el correo.")
             return False

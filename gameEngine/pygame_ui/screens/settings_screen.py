@@ -61,6 +61,10 @@ class SettingsScreen(Screen):
         self.local_db.guardar_usuario(self.usuario)
         if self.sync_client.is_connected():
             self.sync_client.upload_state(self.tapo)
+            
+        from network.session_manager import clear_session
+        clear_session()
+        
         from pygame_ui.screens.login_screen import LoginScreen
         
         # Necesitamos la funcion _on_relogin de status_screen

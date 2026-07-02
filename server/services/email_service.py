@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import requests
 
-from server.config import BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME, SERVER_BASE_URL
+from server.config import BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME, SERVER_BASE_URL, SERVER_REGION
 
 BREVO_SMTP_URL = "https://api.brevo.com/v3/smtp/email"
 
@@ -32,7 +32,7 @@ def enviar_correo_reset(correo_destino: str, token: str, username: str = "usuari
         print("  ⚠️  BREVO_API_KEY no configurada. El correo no fue enviado.")
         return False
 
-    reset_url = f"{SERVER_BASE_URL}/auth/reset-password?token={token}"
+    reset_url = f"{SERVER_BASE_URL}/auth/reset-password?token={token}&region={SERVER_REGION}"
 
     html_content = f"""
 <!DOCTYPE html>

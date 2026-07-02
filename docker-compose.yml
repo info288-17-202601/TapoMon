@@ -92,6 +92,8 @@ services:
     depends_on:
       mongodb-norte:
         condition: service_healthy
+    env_file:
+      - ./server/.env
     environment:
       SERVER_REGION: norte
       MONGO_URI: mongodb://mongodb-norte:27017
@@ -132,6 +134,8 @@ services:
     depends_on:
       mongodb-sur:
         condition: service_healthy
+    env_file:
+      - ./server/.env
     environment:
       SERVER_REGION: sur
       MONGO_URI: mongodb://mongodb-sur:27017
@@ -172,6 +176,8 @@ services:
     depends_on:
       mongodb-centro:
         condition: service_healthy
+    env_file:
+      - ./server/.env
     environment:
       SERVER_REGION: centro
       MONGO_URI: mongodb://mongodb-centro:27017
