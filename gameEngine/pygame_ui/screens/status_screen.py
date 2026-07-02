@@ -77,6 +77,7 @@ class StatusScreen(Screen):
             ("Defensa",       self._accion_defensa),
             ("Velocidad",      self._accion_velocidad),
             ("Resistencia",    self._accion_resistencia),
+            ("Social",         self._accion_social),
             ("Batalla P2P",   self._accion_batalla),
         ]
         self.action_btns: list[Button] = []
@@ -99,10 +100,10 @@ class StatusScreen(Screen):
                        accent_color=C_ACCENT if label != "⚔️ Batalla P2P" else (220, 60, 60))
             )
  
-        # Botón cerrar sesión
-        self.btn_logout = Button(
+        # Botón de Ajustes
+        self.btn_settings = Button(
             SCREEN_W - 120, SCREEN_H - 44, 100, 34,
-            text="Salir", callback=self._logout,
+            text="⚙️ Ajustes", callback=self._open_settings,
             color=C_BG3, hover_color=C_BG2,
             text_color=C_GRAY, accent_color=C_BORDER
         )
@@ -147,6 +148,12 @@ class StatusScreen(Screen):
             self._show_toast(msgs[0])
         if self.ge.verificar_muerte(self.tapo):
             self._handle_death()
+
+    def _open_settings(self):
+        from pygame_ui.screens.settings_screen import SettingsScreen
+        self.manager.push(SettingsScreen(
+            self.manager, self.usuario, self.tapo, self.ge, self.local_db, self.sync_client
+        ))
  
     def _accion_alimentar(self):  self._run_action(self.ge.alimentar)
     def _accion_jugar(self):      self._run_action(self.ge.jugar)
@@ -156,6 +163,12 @@ class StatusScreen(Screen):
     def _accion_velocidad(self):  self._run_action(self.ge.entrenar_velocidad, "attack")
     def _accion_resistencia(self):self._run_action(self.ge.entrenar_resistencia, "attack")
  
+    def _accion_social(self):
+        from pygame_ui.screens.social_screen import SocialScreen
+        self.manager.push(
+            SocialScreen(self.manager, self.usuario, self.tapo, self.sync_client, self.local_db)
+        )
+
     def _accion_batalla(self):
         from pygame_ui.screens.battle_screen import BattleMenuScreen
         self.manager.push(BattleMenuScreen(self.manager, self.tapo))
@@ -218,9 +231,10 @@ class StatusScreen(Screen):
     # ---------------------------------------------------------------- #
  
     def handle_event(self, event: pygame.event.Event):
-        for btn in self.action_btns:
-            btn.handle_event(event)
-        self.btn_logout.handle_event(event)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for btn in self.action_btns:
+                btn.handle_event(event)
+            self.btn_settings.handle_event(event)
  
     def update(self, dt: float):
         self._time += dt
@@ -233,7 +247,7 @@ class StatusScreen(Screen):
  
         for btn in self.action_btns:
             btn.update(dt)
-        self.btn_logout.update(dt)
+        self.btn_settings.update(dt)
  
         if self._toast:
             self._toast.update(dt)
@@ -319,8 +333,7 @@ class StatusScreen(Screen):
         for btn in self.action_btns:
             btn.draw(surf, fonts["small"])
  
-        # Logout
-        self.btn_logout.draw(surf, fonts["small"])
+        self.btn_settings.draw(surf, fonts["label"])
  
         # Toast
         if self._toast:
