@@ -17,8 +17,6 @@ docker network inspect tapomon-shared-net >/dev/null 2>&1 || docker network crea
 docker compose -f docker-compose.client.yml build gameengine
 
 xhost +local:docker > /dev/null 2>&1
-# 2. Aseguramos que la base de datos local de este jugador esté corriendo en background
-docker compose -f docker-compose.client.yml -p "$PLAYER" up -d mongodb-local
 
 echo "🎮 Entrando al juego..."
 # 2. Ejecutamos el juego en modo interactivo, mapeando puertos para el P2P

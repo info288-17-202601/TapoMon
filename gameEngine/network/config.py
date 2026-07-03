@@ -14,6 +14,9 @@ Justificación:
 """
 from __future__ import annotations
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Cargar variables desde el archivo .env si existe
 
 # URL base del servidor central (apunta a Nginx en producción)
 SERVER_URL = os.getenv("TAPOMON_SERVER_URL", "http://localhost:8000")

@@ -18,7 +18,11 @@ class StatusScreen(Screen):
     Muestra el Tapo, sus stats y los botones de acción.
     Integra el realtime tick mientras el usuario está conectado.
     """
- 
+    def on_enter(self) -> None:
+        if self.ge.verificar_muerte(self.tapo):
+            self._handle_death()
+        self._refresh_bars()
+
     def __init__(self, manager, usuario, tapo, game_engine, local_db, sync_client):
         super().__init__(manager)
         self.usuario     = usuario

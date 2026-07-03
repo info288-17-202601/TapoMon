@@ -225,10 +225,11 @@ class ConexionP2P:
     def cerrar(self) -> None:
         """Detiene el peer connection, cierra el canal y finaliza el loop."""
         asyncio.run_coroutine_threadsafe(self._close_webrtc(), self.loop)
-        time.sleep(0.5)
+        time.sleep(1.5)
         self.loop.call_soon_threadsafe(self.loop.stop)
 
     async def _close_webrtc(self) -> None:
+        await asyncio.sleep(1.0)
         if self.channel:
             try:
                 self.channel.close()
@@ -237,6 +238,11 @@ class ConexionP2P:
         if self.pc:
             try:
                 await self.pc.close()
+            except Exception:
+                pass
+        if hasattr(self, 'signaling_server') and self.signaling_server:
+            try:
+                self.signaling_server.close()
             except Exception:
                 pass
 
@@ -437,6 +443,11 @@ class ServidorCombate:
 
         # Esperar resultado del daño
         msg_dmg = self._conn.recibir()
+        if msg_dmg.tipo == MsgType.SURRENDER:
+            self._log(f"   {atacante.nombre} se rindió.")
+            estado.hp_rival = 0
+            self._corriendo = False
+            return
         if msg_dmg.tipo != MsgType.DAMAGE:
             return
 
@@ -451,6 +462,11 @@ class ServidorCombate:
 
         # Recibir fin de turno
         msg_te = self._conn.recibir()
+        if msg_te.tipo == MsgType.SURRENDER:
+            self._log(f"   {atacante.nombre} se rindió.")
+            estado.hp_rival = 0
+            self._corriendo = False
+            return
         if msg_te.tipo == MsgType.TURN_END:
             self._log(
                 f"   HP {defensor.nombre}: {estado.hp_local}  "
@@ -459,6 +475,11 @@ class ServidorCombate:
 
     def rendirse(self) -> None:
         """Permite al host rendirse en cualquier momento."""
-        if self._conn:
-            self._conn.enviar(msg_surrender())
+        if self._conn and self._conn._conn_established.is_set():
+            try:
+                self._conn.enviar(msg_surrender())
+            except Exception:
+                pass
+        if hasattr(self, 'estado') and self.estado:
+            self.estado.hp_local = 0
         self._corriendo = False

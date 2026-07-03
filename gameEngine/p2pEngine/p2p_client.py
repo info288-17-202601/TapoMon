@@ -248,6 +248,11 @@ class ClienteCombate:
 
         # Esperar daño
         msg_dmg = self._conn.recibir()
+        if msg_dmg.tipo == MsgType.SURRENDER:
+            self._log(f"   {atacante.nombre} se rindió.")
+            estado.hp_rival = 0
+            self._corriendo = False
+            return
         if msg_dmg.tipo != MsgType.DAMAGE:
             return
 
@@ -262,6 +267,11 @@ class ClienteCombate:
 
         # Recibir fin de turno
         msg_te = self._conn.recibir()
+        if msg_te.tipo == MsgType.SURRENDER:
+            self._log(f"   {atacante.nombre} se rindió.")
+            estado.hp_rival = 0
+            self._corriendo = False
+            return
         if msg_te.tipo == MsgType.TURN_END:
             self._log(
                 f"   HP {defensor.nombre}: {estado.hp_local}  "
@@ -270,6 +280,11 @@ class ClienteCombate:
 
     def rendirse(self) -> None:
         """Permite al challenger rendirse en cualquier momento."""
-        if self._conn:
-            self._conn.enviar(msg_surrender())
+        if self._conn and self._conn._conn_established.is_set():
+            try:
+                self._conn.enviar(msg_surrender())
+            except Exception:
+                pass
+        if hasattr(self, 'estado') and self.estado:
+            self.estado.hp_local = 0
         self._corriendo = False

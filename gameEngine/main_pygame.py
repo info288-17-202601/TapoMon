@@ -288,8 +288,6 @@ class App:
         except Exception:
             pass
         finally:
-            from db.connection import cerrar_conexion
-            cerrar_conexion()
             pygame.quit()
             sys.exit(0)
 

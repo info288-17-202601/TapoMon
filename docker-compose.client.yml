@@ -30,21 +30,7 @@
 
 services:
 
-  # ── Player's local MongoDB (private save data) ─────────────────────
-  mongodb-local:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongodb_local_data:/data/db
-    networks:
-      - tapomon-client-net
-    # NOT exposed to host — only the gameEngine container can reach it
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+
 
   # ── Game Engine (interactive console) ──────────────────────────────
   gameengine:
@@ -52,9 +38,6 @@ services:
     build:
       context: ./gameEngine
       dockerfile: Dockerfile
-    depends_on:
-      mongodb-local:
-        condition: service_healthy
     stdin_open: true     # keeps stdin open (-i)
     tty: true            # allocates a pseudo-TTY (-t)
     # P2P port is ALWAYS published so in-game Host mode works seamlessly.
@@ -91,7 +74,4 @@ networks:
     name: tapomon-shared-net
     external: true
 
-volumes:
-  mongodb_local_data:
-    # Volume name is scoped to the project (-p flag), so each player
-    # gets their own isolated save data automatically.
+

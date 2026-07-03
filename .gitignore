@@ -6,3 +6,5 @@ server/mongo_data/
 .pytest_cache/
 .env
 */.env
+*/.tapomon_session.json
+*/tapo_save.enc

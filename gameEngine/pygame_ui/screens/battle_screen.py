@@ -25,6 +25,10 @@ COMBAT_END_EVENT = pygame.USEREVENT + 2
 class BattleMenuScreen(Screen):
     """Menú previo: elige HOST o CHALLENGER."""
 
+    def on_enter(self) -> None:
+        if self.tapo.estadistica.vida <= 0:
+            self.manager.pop()
+
     def __init__(self, manager, tapo):
         super().__init__(manager)
         self.tapo = tapo
@@ -255,6 +259,8 @@ class BattleScreen(Screen):
         self._go_back()
 
     def _go_back(self):
+        if self._combat_obj and hasattr(self._combat_obj, "rendirse"):
+            self._combat_obj.rendirse()
         self.manager.pop()
 
     def _ensure_rival_sprite(self, tipo: str | None, hp_max: int | None = None) -> None:
@@ -323,7 +329,19 @@ class BattleScreen(Screen):
         elif event.type == COMBAT_END_EVENT:
             self._status = "ended"
             self._winner = event.msg
-            self.sprite_local.set_state("dead" if "rival" in event.msg else "happy")
+            ganador_str = event.msg.replace("\n", "").replace("Ganador:", "").strip()
+            if ganador_str == self.tapo.nombre:
+                self.sprite_local.set_state("happy")
+                if self.sprite_rival:
+                    self.sprite_rival.set_state("dead")
+            elif ganador_str == "Desconocido / Empate":
+                self.sprite_local.set_state("happy")
+                if self.sprite_rival:
+                    self.sprite_rival.set_state("happy")
+            else:
+                self.sprite_local.set_state("dead")
+                if self.sprite_rival:
+                    self.sprite_rival.set_state("happy")
 
     # ---------------------------------------------------------------- #
     #  Update
