@@ -23,32 +23,7 @@
 
 ## Arquitectura
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Servidor central  (docker-compose.yml)                     │
-│                                                             │
-│  ┌───────────────┐    ┌──────────────────────────────────┐  │
-│  │   mongodb     │◄───│  server  (FastAPI + APScheduler) │  │
-│  │  (interno)    │    │  puerto 8000                     │  │
-│  └───────────────┘    └──────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-            ▲ HTTP (registro, login, sync)
-            │
-┌───────────┴─────────────┐   ┌────────────────────────────────┐
-│  Cliente — Jugador A    │   │  Cliente — Jugador B           │
-│  (docker-compose.client)│   │  (docker-compose.client)       │
-│                         │   │                                │
-│  ┌────────────────────┐ │   │ ┌────────────────────────────┐ │
-│  │ mongodb-local (A)  │ │   │ │ mongodb-local (B)          │ │
-│  │  save data de A    │ │   │ │  save data de B            │ │
-│  └────────────────────┘ │   │ └────────────────────────────┘ │
-│  ┌────────────────────┐ │   │ ┌────────────────────────────┐ │
-│  │   gameEngine       │◄────►│   gameEngine               │ │
-│  │   puerto 55201     │ │   │ │   puerto 55201/55202       │ │
-│  └────────────────────┘ │   │ └────────────────────────────┘ │
-└─────────────────────────┘   └────────────────────────────────┘
-         P2P TCP directo entre jugadores (combate)
-```
+![Arquitectura](documentación/Arquitectura.png)
 
 **Reglas clave:**
 - El servidor se levanta **una sola vez** y es compartido por todos los jugadores.
