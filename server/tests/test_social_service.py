@@ -69,6 +69,12 @@ class TestSocialService:
             "Tapo_ID": friend_tapo_id,
         })
 
+        # Agregar friend_tapo_id a la Friend_List del usuario
+        mongo_test_data[COL_MASCOTAS].update_one(
+            {"id_mascota": TEST_TAPO_ID},
+            {"$set": {"Friend_List": [friend_tapo_id]}}
+        )
+
         result = send_gift(TEST_USER_ID, friend_tapo_id, gift_type="comida")
         assert result["success"] is True
 

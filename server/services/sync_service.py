@@ -82,7 +82,19 @@ def sync_upload(tapo_id: str, tapo_state: dict) -> bool:
     # se guarde como una lista limpia de IDs.
     state_to_store["Estado_Sistema"] = False
     state_to_store["Last_Sync"] = datetime.now().isoformat()
-    state_to_store["Friend_List"] = normalizar_friend_list(state_to_store.get("Friend_List"))
+    
+    # Filtrar Friend_List para contener solo IDs que existen en el servidor regional
+    raw_friends = normalizar_friend_list(state_to_store.get("Friend_List"))
+    validated_friends = []
+    if raw_friends:
+        # Consultar la existencia de estos IDs en la base de datos local (este servidor)
+        existing_mascotas = db[COL_MASCOTAS].find(
+            {"id_mascota": {"$in": raw_friends}},
+            {"id_mascota": 1}
+        )
+        existing_ids = {doc["id_mascota"] for doc in existing_mascotas}
+        validated_friends = [fid for fid in raw_friends if fid in existing_ids]
+    state_to_store["Friend_List"] = validated_friends
 
     result = db[COL_MASCOTAS].update_one(
         {"id_mascota": tapo_id},

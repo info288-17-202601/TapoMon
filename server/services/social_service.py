@@ -81,15 +81,30 @@ def add_friend(usuario_id: str, friend_id: str) -> dict:
     if tapo_doc is None:
         return {"success": False, "message": "No se encontró el Tapo del usuario."}
 
-    if friend_id == tapo_doc.get("id_mascota"):
+    # Intentar resolver friend_id (que puede ser Tapo ID, Username, o Nombre de Tapo)
+    target_tapo = db[COL_MASCOTAS].find_one({"id_mascota": friend_id})
+    if target_tapo is None:
+        # Intentar por Username del usuario en este servidor
+        user_doc = db[COL_USUARIOS].find_one({"Username": {"$regex": f"^{friend_id}$", "$options": "i"}})
+        if user_doc and user_doc.get("Tapo_ID"):
+            target_tapo = db[COL_MASCOTAS].find_one({"id_mascota": user_doc["Tapo_ID"]})
+    if target_tapo is None:
+        # Intentar por Nombre del Tapo en este servidor
+        target_tapo = db[COL_MASCOTAS].find_one({"Nombre": {"$regex": f"^{friend_id}$", "$options": "i"}})
+
+    if target_tapo is None:
+        return {"success": False, "message": "El amigo indicado no existe en este servidor."}
+
+    resolved_friend_id = target_tapo["id_mascota"]
+
+    if resolved_friend_id == tapo_doc.get("id_mascota"):
         return {"success": False, "message": "No puedes agregarte a ti mismo como amigo."}
 
-    if db[COL_MASCOTAS].find_one({"id_mascota": friend_id}) is None:
-        return {"success": False, "message": "El amigo indicado no existe."}
-
     friends = normalizar_friend_list(tapo_doc.get("Friend_List"))
-    if friend_id not in friends:
-        friends.append(friend_id)
+    if resolved_friend_id not in friends:
+        friends.append(resolved_friend_id)
+    else:
+        return {"success": False, "message": "Ya tienes a este amigo agregado."}
 
     db[COL_MASCOTAS].update_one(
         {"id_mascota": tapo_doc["id_mascota"]},

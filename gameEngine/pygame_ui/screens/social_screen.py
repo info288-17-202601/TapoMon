@@ -251,12 +251,18 @@ class SocialScreen(Screen):
                 )
             return
 
-        result = self.sync_client.add_friend(resolved_friend_id)
+        if self.sync_client.is_connected():
+            result = self.sync_client.add_friend(resolved_friend_id)
 
-        if result and result.get("success"):
-            self.tf_friend.text = ""
-            self.selected_friend_id = resolved_friend_id
-            self._refresh_social_state()
+            if result and result.get("success"):
+                self.tf_friend.text = ""
+                self.selected_friend_id = resolved_friend_id
+                self._refresh_social_state()
+                return
+            
+            # Si el servidor falló o no dio respuesta exitosa, mostramos la razón
+            msg = result.get("message") if (result and isinstance(result, dict)) else "No se pudo agregar al amigo en el servidor."
+            self._show_toast(msg, ok=False)
             return
 
         current_ids = [f["friend_id"] for f in self.friends] if self.friends else list(getattr(self.tapo, "friend_list", []) or [])
@@ -265,7 +271,7 @@ class SocialScreen(Screen):
 
         self.tf_friend.text = ""
         self.selected_friend_id = resolved_friend_id
-        self._show_toast("Amigo agregado.")
+        self._show_toast("Amigo agregado localmente.")
 
     def _remove_friend(self) -> None:
 

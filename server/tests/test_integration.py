@@ -85,6 +85,15 @@ class TestSyncUploadEndpoint:
 
     def test_upload_tapo_ajeno(self, app_client, auth_headers, mongo_test_data):
         """Upload de un Tapo que no pertenece al usuario retorna 403."""
+        from server.config import COL_USUARIOS
+        mongo_test_data[COL_USUARIOS].insert_one({
+            "Id": "other-user-id",
+            "Username": "otherplayer",
+            "Correo": "other@tapomon.cl",
+            "Password": "hash",
+            "Tapo_ID": "tapo-de-otro-usuario",
+        })
+
         payload = TEST_TAPO_DOC.copy()
         payload.pop("_id", None)
         payload["id_mascota"] = "tapo-de-otro-usuario"

@@ -110,6 +110,9 @@ async def import_player(data: dict):
     # Importar Tapo (upsert por id_mascota)
     if tapo_doc and tapo_doc.get("id_mascota"):
         tapo_doc.pop("_id", None)
+        # Limpiar Friend_List y Gift_Cooldowns porque los amigos pertenecen al servidor anterior
+        tapo_doc["Friend_List"] = []
+        tapo_doc["Gift_Cooldowns"] = []
         db[COL_MASCOTAS].update_one(
             {"id_mascota": tapo_doc["id_mascota"]},
             {"$set": tapo_doc},

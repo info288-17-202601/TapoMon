@@ -458,6 +458,9 @@ class SyncClient:
             )
             if resp.status_code == 200:
                 return resp.json()
+            elif resp.status_code == 400:
+                detail = resp.json().get("detail", "Error al agregar amigo.")
+                return {"success": False, "message": detail}
             return None
         except requests.ConnectionError:
             print("  ⚠️  Servidor no disponible. No se pudo agregar el amigo.")
