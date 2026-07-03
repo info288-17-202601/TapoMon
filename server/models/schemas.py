@@ -127,12 +127,19 @@ class SocialFriendInfo(BaseModel):
     tapo_name: Optional[str] = None
 
 
+class SocialRecommendationInfo(BaseModel):
+    """Información de recomendación de amigo."""
+    friend_id: str
+    name: str
+
+
 class SocialStateResponse(BaseModel):
     """Respuesta con la vista social del Tapo."""
     success: bool
     message: str
     friends: list[SocialFriendInfo] = Field(default_factory=list)
     gift_cooldowns: list[GiftCooldownSchema] = Field(default_factory=list)
+    recommendations: list[SocialRecommendationInfo] = Field(default_factory=list)
 
 
 class SocialFriendRequest(BaseModel):

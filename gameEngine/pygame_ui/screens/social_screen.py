@@ -32,6 +32,7 @@ class SocialScreen(Screen):
         self._toast: Toast | None = None
 
         self.friends: list[dict] = []
+        self.recommendations: list[dict] = []
         self.selected_friend_id: str | None = None
 
         self._build_widgets()
@@ -196,6 +197,7 @@ class SocialScreen(Screen):
         data = self.sync_client.get_social_state()
 
         if data and data.get("success"):
+            self.recommendations = data.get("recommendations", [])
             self._apply_friend_state(data.get("friends", []), source="server")
             return
 

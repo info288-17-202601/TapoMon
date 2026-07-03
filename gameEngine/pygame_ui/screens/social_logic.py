@@ -94,6 +94,9 @@ def get_friend_display_name(friend: object, local_db=None) -> str:
 
 def get_friend_recommendations(screen) -> list[dict]:
     """Devuelve una lista breve de sugerencias basadas en los amigos de los amigos."""
+    if hasattr(screen, "recommendations") and screen.recommendations:
+        return screen.recommendations
+
     current_ids = {str(friend.get("friend_id") or "").strip() for friend in getattr(screen, "friends", []) if friend.get("friend_id")}
     current_ids.add(str(getattr(getattr(screen, "tapo", None), "id_mascota", "") or "").strip())
 

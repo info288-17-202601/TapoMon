@@ -43,6 +43,32 @@ def _obtener_informacion_amigo(db, friend_id: str) -> dict | None:
     }
 
 
+def _generar_recomendaciones_amigos(db, tapo_doc: dict) -> list[dict]:
+    """Genera recomendaciones de amigos basadas en amigos de amigos en el mismo servidor."""
+    friend_list = normalizar_friend_list(tapo_doc.get("Friend_List"))
+    current_ids = set(friend_list)
+    current_ids.add(tapo_doc.get("id_mascota"))
+
+    recommendations = []
+    seen_ids = set()
+
+    for friend_id in friend_list:
+        friend_tapo = db[COL_MASCOTAS].find_one({"id_mascota": friend_id})
+        if friend_tapo:
+            for suggested_id in normalizar_friend_list(friend_tapo.get("Friend_List")):
+                if suggested_id not in current_ids and suggested_id not in seen_ids:
+                    suggested_tapo = db[COL_MASCOTAS].find_one({"id_mascota": suggested_id})
+                    if suggested_tapo:
+                        seen_ids.add(suggested_id)
+                        recommendations.append({
+                            "friend_id": suggested_id,
+                            "name": suggested_tapo.get("Nombre", suggested_id),
+                        })
+                        if len(recommendations) >= 4:
+                            return recommendations
+    return recommendations
+
+
 def get_social_state(usuario_id: str) -> dict:
     """Devuelve la lista de amigos y los cooldowns del Tapo del usuario."""
     db = get_db()
@@ -53,6 +79,7 @@ def get_social_state(usuario_id: str) -> dict:
             "message": "No se encontró el Tapo del usuario.",
             "friends": [],
             "gift_cooldowns": [],
+            "recommendations": [],
         }
 
     friends = []
@@ -62,11 +89,13 @@ def get_social_state(usuario_id: str) -> dict:
             friends.append(info)
 
     cooldowns = tapo_doc.get("Gift_Cooldowns") or []
+    recommendations = _generar_recomendaciones_amigos(db, tapo_doc)
     return {
         "success": True,
         "message": "Estado social recuperado correctamente.",
         "friends": friends,
         "gift_cooldowns": cooldowns,
+        "recommendations": recommendations,
     }
 
 
