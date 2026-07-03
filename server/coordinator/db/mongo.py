@@ -82,5 +82,26 @@ def crear_indices() -> None:
     """
     db = get_db()
     db[COL_PLAYER_REGISTRY].create_index("usuario_id", unique=True)
-    db[COL_PLAYER_REGISTRY].create_index("username",   unique=True)
+    try:
+        db[COL_PLAYER_REGISTRY].drop_index("username_1")
+    except Exception:
+        pass
+        
+    try:
+        db[COL_PLAYER_REGISTRY].drop_index("correo_1")
+    except Exception:
+        pass
+
+    db[COL_PLAYER_REGISTRY].create_index(
+        "username",
+        unique=True,
+        collation={"locale": "en", "strength": 2},
+        sparse=True
+    )
+    db[COL_PLAYER_REGISTRY].create_index(
+        "correo",
+        unique=True,
+        collation={"locale": "en", "strength": 2},
+        sparse=True
+    )
     db[COL_SERVER_STATUS].create_index("server_name",   unique=True)

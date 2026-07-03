@@ -69,7 +69,7 @@ class SyncClient:
     #  Coordinador
     # ------------------------------------------------------------------ #
 
-    def _assign_server(self, usuario_id: str, username: str, target_region: str | None = None) -> str | None:
+    def _assign_server(self, usuario_id: str, username: str, correo: str, target_region: str | None = None) -> str | None:
         """
         Solicita al coordinador que asigne un servidor al jugador.
         Se llama durante el registro.
@@ -78,7 +78,7 @@ class SyncClient:
             Nombre de la región asignada, o None si falló.
         """
         try:
-            payload = {"usuario_id": usuario_id, "username": username}
+            payload = {"usuario_id": usuario_id, "username": username, "correo": correo}
             if target_region:
                 payload["target_region"] = target_region
 
@@ -89,6 +89,9 @@ class SyncClient:
             )
             if resp.status_code == 200:
                 data = resp.json()
+                if not data.get("success"):
+                    # Error validado desde el coordinador (ej. correo duplicado)
+                    raise Exception(data.get("message", "Error en el coordinador."))
                 region = data.get("server_region")
                 if region:
                     self._server_region = region
@@ -103,7 +106,7 @@ class SyncClient:
             return None
         except Exception as e:
             print(f"  ⚠️  Error al asignar servidor: {e}")
-            return None
+            raise e
 
     def _resolve_server(self, usuario_id: str) -> str | None:
         """
@@ -311,7 +314,7 @@ class SyncClient:
             None si falló o el servidor no está disponible.
         """
         # 1. Solicitar asignación de servidor al coordinador
-        self._assign_server(usuario_id, username, target_region)
+        self._assign_server(usuario_id, username, correo, target_region)
 
         # 2. Registrar en el servidor regional (Nginx enruta por X-Server-Region)
         try:
@@ -336,11 +339,10 @@ class SyncClient:
                     self._usuario_id = uid
                 return data
             if resp.status_code == 409:
-                # El usuario ya existe en el servidor — le decimos al cliente
-                # que haga login manual (no podemos hacer login automático
-                # porque ahora requiere 2FA y un correo real).
-                print("  ⚠️  Usuario ya existe en el servidor. Inicia sesión manualmente.")
-                return None
+                # El usuario ya existe en el servidor — lanzamos la excepcion
+                # con el mensaje del servidor para que se muestre en la UI.
+                msg = resp.json().get("detail", "Usuario o correo ya existe en el servidor.")
+                raise Exception(msg)
             print(f"  ⚠️  Error al registrar en el servidor: {resp.status_code}")
             return None
         except requests.ConnectionError:

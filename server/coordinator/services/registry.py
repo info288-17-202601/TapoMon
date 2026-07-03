@@ -23,15 +23,17 @@ from server.coordinator.config import (
 )
 
 
-def asignar_servidor(usuario_id: str, username: str, target_region: str | None = None) -> dict:
+def asignar_servidor(usuario_id: str, username: str, correo: str, target_region: str | None = None) -> dict:
     """
     Asigna un jugador nuevo al servidor regional especificado o al de menor carga.
 
-    Si el jugador ya está registrado, retorna su servidor actual.
+    Verifica primero que el username y correo sean únicos a nivel global en el coordinador.
+    Si el jugador ya está registrado (mismo usuario_id), retorna su servidor actual.
 
     Args:
         usuario_id: UUID del jugador.
         username:   Nombre de usuario.
+        correo:     Correo electrónico.
         target_region: (Opcional) Nombre del servidor destino a asignar.
 
     Returns:
@@ -39,7 +41,7 @@ def asignar_servidor(usuario_id: str, username: str, target_region: str | None =
     """
     db = get_db()
 
-    # Verificar si ya está registrado
+    # Verificar si ya está registrado por ID (caso de retry)
     existing = db[COL_PLAYER_REGISTRY].find_one({"usuario_id": usuario_id})
     if existing:
         region = existing["server_region"]
@@ -49,6 +51,23 @@ def asignar_servidor(usuario_id: str, username: str, target_region: str | None =
             "message": f"Jugador ya asignado al servidor '{region}'.",
             "server_region": region,
             "server_url": url,
+        }
+
+    # Verificar unicidad global de Username y Correo
+    if db[COL_PLAYER_REGISTRY].find_one({"username": {"$regex": f"^{username}$", "$options": "i"}}):
+        return {
+            "success": False,
+            "message": "El nombre de usuario ya está registrado globalmente.",
+            "server_region": None,
+            "server_url": None,
+        }
+        
+    if db[COL_PLAYER_REGISTRY].find_one({"correo": {"$regex": f"^{correo}$", "$options": "i"}}):
+        return {
+            "success": False,
+            "message": "El correo electrónico ya está en uso globalmente.",
+            "server_region": None,
+            "server_url": None,
         }
 
     # Contar jugadores por servidor para balanceo
@@ -67,6 +86,7 @@ def asignar_servidor(usuario_id: str, username: str, target_region: str | None =
     db[COL_PLAYER_REGISTRY].insert_one({
         "usuario_id":     usuario_id,
         "username":       username,
+        "correo":         correo,
         "server_region":  target,
         "assigned_at":    datetime.now().isoformat(),
         "last_migration": None,

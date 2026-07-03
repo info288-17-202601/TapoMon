@@ -40,7 +40,7 @@ def registrar_usuario(
     password: str,
     usuario_id: str,
     tapo_id: str,
-) -> dict | None:
+) -> tuple[dict | None, str | None]:
     """
     Crea un usuario nuevo en la base de datos del servidor.
 
@@ -55,16 +55,22 @@ def registrar_usuario(
         tapo_id:    UUID de la mascota, generado por el cliente.
 
     Returns:
-        El documento del usuario creado, o None si el username ya existe.
+        Tupla con el documento del usuario (o None si falla) y el mensaje de error (o None si éxito).
     """
     db = get_db()
 
-    # Verificar unicidad de username (case-insensitive)
-    existing = db[COL_USUARIOS].find_one(
+    # Verificar unicidad de username y correo (case-insensitive)
+    existing_username = db[COL_USUARIOS].find_one(
         {"Username": {"$regex": f"^{username}$", "$options": "i"}}
     )
-    if existing is not None:
-        return None
+    if existing_username is not None:
+        return None, "El nombre de usuario ya está registrado."
+
+    existing_correo = db[COL_USUARIOS].find_one(
+        {"Correo": {"$regex": f"^{correo}$", "$options": "i"}}
+    )
+    if existing_correo is not None:
+        return None, "El correo electrónico ya está en uso."
 
     usuario_doc = {
         "Id":       usuario_id,
@@ -74,7 +80,7 @@ def registrar_usuario(
         "Tapo_ID":  tapo_id,
     }
     db[COL_USUARIOS].insert_one(usuario_doc)
-    return usuario_doc
+    return usuario_doc, None
 
 
 def autenticar_usuario(username: str, password: str) -> dict | None:

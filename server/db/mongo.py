@@ -80,6 +80,18 @@ def crear_indices() -> None:
     """
     db = get_db()
     db[COL_USUARIOS].create_index("Id",       unique=True)
-    db[COL_USUARIOS].create_index("Username", unique=True)
+    
+    # Crear índices únicos case-insensitive para Username y Correo
+    db[COL_USUARIOS].create_index(
+        "Username", 
+        unique=True,
+        collation={"locale": "en", "strength": 2}
+    )
+    db[COL_USUARIOS].create_index(
+        "Correo", 
+        unique=True,
+        collation={"locale": "en", "strength": 2}
+    )
+    
     db[COL_MASCOTAS].create_index("id_mascota", unique=True)
     db[COL_INBOX].create_index([("Recipient_ID", 1), ("Status", 1)])

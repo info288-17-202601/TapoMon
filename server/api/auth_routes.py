@@ -147,7 +147,7 @@ async def register(request: RegisterRequest):
     Retorna 409 si el username ya está registrado en el servidor.
     Retorna 201 + JWT si el registro fue exitoso.
     """
-    usuario_doc = registrar_usuario(
+    usuario_doc, error_msg = registrar_usuario(
         username=request.username,
         correo=request.correo,
         password=request.password,
@@ -158,7 +158,7 @@ async def register(request: RegisterRequest):
     if usuario_doc is None:
         raise HTTPException(
             status_code=409,
-            detail="El nombre de usuario ya está registrado en el servidor."
+            detail=error_msg or "Error al registrar el usuario."
         )
 
     token = generar_token(usuario_doc)

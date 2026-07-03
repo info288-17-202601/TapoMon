@@ -106,6 +106,7 @@ async def assign_server(request: AssignRequest):
     result = asignar_servidor(
         usuario_id=request.usuario_id,
         username=request.username,
+        correo=request.correo,
         target_region=request.target_region
     )
     return AssignResponse(**result)

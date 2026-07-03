@@ -19,6 +19,7 @@ class AssignRequest(BaseModel):
     """Solicitud para asignar un jugador nuevo a un servidor regional."""
     usuario_id: str
     username:   str
+    correo:     str
     target_region: Optional[str] = None
 
 
